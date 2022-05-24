@@ -34,7 +34,8 @@ async def cmd_start(msg: types.Message, state: FSMContext):
     work_type_button = types.ReplyKeyboardMarkup(resize_keyboard=True)
     work_type_button.add(*work_type_office)
     await msg.reply(
-        f"{msg.from_user.first_name}, Вас приветствует бот по поиску вакансий с использованием Natural Language Processing" +
+        f"{msg.from_user.first_name}, Вас приветствует бот по поиску вакансий с использованием Natural " +\
+        f"Language Processing" +
         "\r\n\r\nДля поиска вакансий необходимо предварительно получить некоторые данные." +
         "\r\n\r\nВыберите формат работы", reply_markup=work_type_button)
 

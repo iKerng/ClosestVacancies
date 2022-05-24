@@ -9,12 +9,14 @@ def get_regions(areas=dict(), reload=0):
     db_path = path.abspath(getcwd()) + '\\data\\vacancies.db'
     connect = sql.connect(db_path)
     if (not len(areas) == 0) and reload == 1:
-        pd.DataFrame([x for x in areas])[['id', 'parent_id', 'name']].to_sql('region', con=connect, if_exists='replace', index=False)
+        pd.DataFrame([x for x in areas])[['id', 'parent_id', 'name']].to_sql('region', con=connect, if_exists='replace'
+                                                                             , index=False)
         ls_cities = []
         for region in areas:
             for city in region.get('areas'):
                 ls_cities.append(city)
-        pd.DataFrame(ls_cities)[['id', 'parent_id', 'name']].to_sql('cities', con=connect, if_exists='replace', index=False)
+        pd.DataFrame(ls_cities)[['id', 'parent_id', 'name']].to_sql('cities', con=connect, if_exists='replace'
+                                                                    , index=False)
     connect.close()
 
 def get_dictionaries(dictionaries=dict(), reload=0):
@@ -23,7 +25,8 @@ def get_dictionaries(dictionaries=dict(), reload=0):
     ls_dicts = ['employment', 'experience', 'schedule', 'vacancy_type', 'working_days', 'currency', 'employer_type']
     if (not len(dictionaries) == 0) and reload == 1:
         for name_dict in ls_dicts:
-            pd.DataFrame(dictionaries.get(name_dict)).to_sql(name=name_dict, con=connect, if_exists='replace', index=False)
+            pd.DataFrame(dictionaries.get(name_dict)).to_sql(name=name_dict, con=connect, if_exists='replace'
+                                                             , index=False)
     connect.close()
 
 def reload_dict(dict_name, reload=1):
@@ -46,5 +49,5 @@ def reload_dict(dict_name, reload=1):
             get_dictionaries(dictionaries, 1)
     connect.close()
 
-reload_dict('all', 1)
+# reload_dict('all', 1)
 
