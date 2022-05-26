@@ -1,9 +1,10 @@
 import asyncio
-from os import path, getcwd, getenv
+from os import path, getcwd, getenv, environ
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.dispatcher.filters import IDFilter
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 import sqlite3 as sql
@@ -24,6 +25,7 @@ class OrderParams(StatesGroup):
     waiting_region = State()
 
 async def cmd_start(msg: types.Message, state: FSMContext):
+    print(msg)
     await state.finish()
     await OrderParams.waiting_schedule.set()
     cur = sql_def()
@@ -39,24 +41,47 @@ async def cmd_start(msg: types.Message, state: FSMContext):
         "\r\n\r\nДля поиска вакансий необходимо предварительно получить некоторые данные." +
         "\r\n\r\nВыберите формат работы", reply_markup=work_type_button)
 
+# async switch_razmetka()
 
 async def cmd_cancel(message: types.Message, state: FSMContext):
     await state.finish()
     await message.answer("Действие отменено", reply_markup=types.ReplyKeyboardRemove())
 
 
+# todo нужно дописать админскую настройку для выбора режима обработки текста
 
-# Просто функция, которая доступна только администратору,
-# чей ID указан в файле конфигурации.
 async def secret_command(message: types.Message):
-    await message.answer("Поздравляю! Эта команда доступна только администратору бота.")
+    print(f"Разметка до: [{getenv('is_razmetka')}]")
+    status_razmetki = 'включен' if getenv('is_razmetka') else 'выключен'
+    list_words = message.text.lower().split(' ')
+    input_command = list_words[1] if len(list_words) > 1 else None
+    commands = ['включить', 'включи', 'выключить', 'выключи']
+    if commands[0:2].count(input_command):
+        print(getenv('is_razmetka'))
+        await message.reply(f'Режим разметки установлен в состояние: включен')
+        environ['is_razmetka'] = '1'
+        print(getenv('is_razmetka'))
+    elif commands[2:4].count(input_command):
+        print(getenv('is_razmetka'))
+        await message.reply(f'Режим разметки установлен в состояние: выключен')
+        environ['is_razmetka'] = '0'
+        print(getenv('is_razmetka'))
+    elif message.text == '/razmetka':
+        await message.answer(f"Приветствую тебя, админ! На текущий момент параметр разметки {status_razmetki}")
+        # await message.answer(f'Текущее состояние разметки: {status_razmetki}')
+        razmetka_button = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        razmetka_button.add(*['/razmetka выключить', '/razmetka включить'])
+        await message.reply(f'Выбери режим разметки:', reply_markup=razmetka_button)
+    else:
+        await message.reply('Данная команда мне неизвестна.')
+    print(f"Разметка после: [{getenv('is_razmetka')}]")
 
 
-def register_handlers_common(dp: Dispatcher, admin_id: int):
+def register_handlers_common(dp: Dispatcher, user_id: int):
     dp.register_message_handler(cmd_start, commands="start", state="*")
-    # dp.register_message_handler(cmd_cancel, commands="cancel", state="*")
+    dp.register_message_handler(cmd_cancel, commands="cancel", state="*")
     # dp.register_message_handler(cmd_cancel, Text(equals="отмена", ignore_case=True), state="*")
-    # dp.register_message_handler(secret_command, IDFilter(user_id=admin_id), commands="abracadabra")
+    dp.register_message_handler(secret_command, IDFilter(user_id=user_id), commands="razmetka", state='*')
 
 # def register_continue(dp: Dispatcher):
 
@@ -65,8 +90,6 @@ def register_handlers_common(dp: Dispatcher, admin_id: int):
 async def main():
     reload_dict('all')
 
-    # предварительно необходимо добавить в список переменных вирт. окружения
-    # токен, полученный от телеграм
     bot_token = getenv('bot_token')
     if not bot_token:
         exit('Error: Bot token not found in enviroment variables')
@@ -75,8 +98,8 @@ async def main():
     dp = Dispatcher(bot, storage=MemoryStorage())
 
     search_params = dict()
-
-    register_handlers_common(dp, 0)
+    bot_admin = getenv('bot_admin')
+    register_handlers_common(dp, bot_admin)
     register_continue(dp)
 
     await dp.start_polling()

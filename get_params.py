@@ -16,8 +16,6 @@ def sql_def():
     connect = sql.connect(db_path)
     return connect.cursor()
 
-# todo написать функцию админскую, по которой делать обновление словарей
-
 class OrderParams(StatesGroup):
     waiting_start = State()
     waiting_schedule = State()
@@ -31,6 +29,9 @@ class OrderParams(StatesGroup):
 
 
 async def choose_schedule(msg: types.Message, state: FSMContext):
+    print(msg.from_user.id)
+    razmetka_status = 'включен' if getenv('is_razmetka') else 'выключен'
+    print(f'Выводим значение параметра разметки: {razmetka_status}')
     print('choose_schedule')
     cur = sql_def()
     cols = DataFrame(cur.execute("SELECT name FROM pragma_table_info('schedule')"))[0].to_list()
@@ -135,15 +136,13 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
 
 async def analyze_description(msg: types.Message, state: FSMContext):
     print('analyze_description')
-    # todo здесь будет ключевая логика по обработке текста с помощью NLP
     await msg.answer('Механизм подбора вакансий запущен. К сожалению, необходимо немного подождать, '\
                      + 'пока я подберу для Вас подходящие вакансии. Я обязательно Вам напишу, '\
                      + 'как только закончу подбор вакансий')
-    ls_result = get_vacs(params=(await state.get_data()), user_text=msg.text, id=msg.id)
+    ls_result = get_vacs(params=(await state.get_data()), user_text=msg.text, id=msg.from_user.id)
     await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений машинного '\
                     + 'обучение, а именно NLP, завершен!')
-    # todo в проме убрать slice из цикла
-    for i, url in enumerate(ls_result[:2]):
+    for i, url in enumerate(ls_result):
         await msg.answer(str(i+1) + ') ' + url)
     await state.finish()
     await msg.answer('Для нового поиска нажмите /start')
