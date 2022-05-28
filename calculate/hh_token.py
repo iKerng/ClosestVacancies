@@ -9,7 +9,7 @@ import os.path
 
 
 def get_token():
-    full_path = os.path.abspath('') + '\\data\\token.json'
+    full_path = os.path.abspath('') + '/data/token.json'
     token_dict = dict()
     token = ''
     if os.path.exists(full_path):

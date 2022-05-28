@@ -7,7 +7,7 @@ from calculate import hh_token
 
 # обновление словарей городов и регионов
 def get_regions(areas=dict(), reload=0):
-    db_path = path.abspath(getcwd()) + '\\data\\vacancies.db'
+    db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     connect = sql.connect(db_path)
     if (not len(areas) == 0) and reload == 1:
         pd.DataFrame([x for x in areas])[['id', 'parent_id', 'name']].\
@@ -23,7 +23,7 @@ def get_regions(areas=dict(), reload=0):
 
 # обновление словарей параметров вакансий
 def get_dictionaries(dictionaries=dict(), reload=0):
-    db_path = path.abspath(getcwd()) + '\\data\\vacancies.db'
+    db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     connect = sql.connect(db_path)
     ls_dicts = ['employment', 'experience', 'schedule', 'vacancy_type', 'working_days', 'currency', 'employer_type']
     if (not len(dictionaries) == 0) and reload == 1:
@@ -38,7 +38,7 @@ def reload_dict(dict_name, reload=1):
     token = hh_token.get_token()
     headers = {'Authorization': token}
     api_hh = 'https://api.hh.ru/'
-    db_path = path.abspath(getcwd()) + '\\data\\vacancies.db'
+    db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     connect = sql.connect(db_path)
     # условие обновления словарей: все или только конкретный, например справочник регионов
     if reload:

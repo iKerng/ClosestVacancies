@@ -10,7 +10,7 @@ def hh_api_get_vacancies(params=None, user_id=0):
     # sqlite connect params
     if params is None:
         params = dict()
-    db_path = path.abspath(getcwd()) + '\\data\\vacancies.db'
+    db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     print(db_path)
     connect = sql.connect(db_path)
 

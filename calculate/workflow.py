@@ -13,7 +13,7 @@ from calculate.run_nlp_predict import nlp_predict
 
 
 def sql_def():
-    db_path = path.abspath(getcwd()) + '\\data\\vacancies.db'
+    db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     connect = sql.connect(db_path)
     return connect.cursor()
 
