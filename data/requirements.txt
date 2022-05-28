@@ -1,0 +1,14 @@
+os
+aiogram
+pandas
+sqlite3
+requests
+beautifulsoup4
+numpy
+nltk
+pymorphy2
+sklearn
+gensim
+transformers
+torch
+random
