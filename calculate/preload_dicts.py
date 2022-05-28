@@ -2,7 +2,7 @@ import sqlite3 as sql
 from os import path, getcwd
 import pandas as pd
 import requests as rq
-import hh_token
+from calculate import hh_token
 
 
 # обновление словарей городов и регионов

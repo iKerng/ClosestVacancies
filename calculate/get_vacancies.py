@@ -1,3 +1,4 @@
+# from calculate import hh_token
 import hh_token
 import pandas as pd
 from os import path, getcwd, getenv, environ
@@ -28,9 +29,11 @@ def hh_api_get_vacancies(params=None, user_id=0):
     # запускаем обработку вакансий
     if int(getenv('is_razmetka')):
         # для разметки данных берем данные локально из БД
+        print('Находимся в режиме разметки, данные берём из БД')
         vacancies = pd.read_sql('select * from vacancies_'+str(user_id), con=connect, index_col='id')
         environ['model'] = '0'
     else:
+        print('Находимся в режиме работы с HH.ru')
         # а для режима пром - берем данные с HH.ru
         vacancies = pd.DataFrame()
         rs_get = rq.get(url=link_api_hh+'vacancies/', params=filter_vacs_dict).json()

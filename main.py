@@ -7,16 +7,12 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from calculate.bot import register_handlers_common, register_continue
 
 
-async def main():
+async def run_bot():
+
     # берем токен телеграм-бота из виртуального окружения
-    bot_token = getenv('bot_token')
-    if not bot_token:
-        exit('Error: Bot token not found in enviroment variables')
-
-    bot = Bot(token=bot_token)
-    dp = Dispatcher(bot, storage=MemoryStorage())
-
     bot_admin = getenv('bot_admin')
+
+    dp = Dispatcher(bot, storage=MemoryStorage(), loop=loop)
 
     # проверяем не является ли сообщение командой пользователя или командой пользователя-админа
     register_handlers_common(dp, int(bot_admin))
@@ -27,4 +23,13 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    bot_token = getenv('bot_token')
+    if not bot_token:
+        exit('Error: токен бота не найден')
+
+    bot = Bot(token=bot_token)
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_bot())
+    loop.run_forever()
+
+    asyncio.create_task(run_bot())

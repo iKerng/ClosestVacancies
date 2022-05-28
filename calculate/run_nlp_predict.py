@@ -1,5 +1,5 @@
 import pandas as pd
-from os import getenv
+from os import getenv, environ
 import bs4 as bs
 import numpy as np
 
@@ -17,7 +17,7 @@ from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from transformers import AutoTokenizer, AutoModel
 import torch
 
-from get_vacancies import hh_api_get_vacancies
+from calculate.get_vacancies import hh_api_get_vacancies
 
 
 def clean_tokenize(text=''):
@@ -38,7 +38,6 @@ def clean_tokenize(text=''):
 
 
 def run_tfidf(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vacs'])):
-    print('TF-IDF: запускаем обработку')
     tfidf_vec = TfidfVectorizer(ngram_range=(2, 2), analyzer='word')
     # обучаемся
     tfidf_vec.fit([' '.join(vacancies['cleared_vacs'].to_list()) + ' ' + ' '.join(cleared_user_text)])
@@ -55,7 +54,6 @@ def run_tfidf(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
 
 
 def run_word2vec(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vacs'])):
-    print('Word2Vec: запускаем обработку')
     # задаем параметры для модели
     max_epochs = 30
     vec_size = 125
@@ -91,7 +89,6 @@ def run_word2vec(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_
 
 
 def run_sbert(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vacs'])):
-    print('S-BERT: запускаем обработку')
     # todo: добавить комментарии по модели sbert
     tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/bert-base-nli-mean-tokens')
     model = AutoModel.from_pretrained('sentence-transformers/bert-base-nli-mean-tokens')
@@ -134,23 +131,31 @@ def run_sbert(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
 def nlp_predict(user_text='', vacancies=pd.DataFrame()):
     # предобработка текста
     vacancies['cleared_vacs'] = vacancies['description'].apply(lambda x: clean_tokenize(x))
-    cleared_user_text = clean_tokenize(user_text)
+    cleared_user_text = clean_tokenize(text=user_text)
 
     # рабочая модель (для разметки используем весь набор)
     mode_rezhim = int(getenv('model'))
     if mode_rezhim == 0:
+        print('TF-IDF: запускаем обработку')
         tfidf = run_tfidf(cleared_user_text, vacancies)
+        print('Word2Vec: запускаем обработку')
         word2vec = run_word2vec(cleared_user_text, vacancies)
+        print('S-BERT: запускаем обработку')
         run_sber = run_sbert(cleared_user_text, vacancies)
         return tfidf + word2vec + run_sber
     elif mode_rezhim == 1:
+        print('TF-IDF: запускаем обработку')
         return run_tfidf(cleared_user_text, vacancies)
     elif mode_rezhim == 2:
+        print('Word2Vec: запускаем обработку')
         return run_word2vec(cleared_user_text, vacancies)
     elif mode_rezhim == 3:
+        print('S-BERT: запускаем обработку')
         return run_sbert(cleared_user_text, vacancies)
     else:
-        return ['Проблема с настройками. Поиск невозможен']
+        environ['model'] = '1'
+        return ['Проблема с настройками. Используется модель по умолчанию: TF-IDF'] + run_tfidf(cleared_user_text,
+                                                                                                vacancies)
 
 
 if __name__ == '__main__':
@@ -171,3 +176,5 @@ if __name__ == '__main__':
     print(f"Результат подбора по версии TF-IDF:\r\n{tfidf}")
     print(f"Результат подбора по версии Word2Vec:\r\n{tfidf}")
     print(f"Результат подбора по версии BERT:\r\n{tfidf}")
+    # todo: сделать разметку вакансий
+    #  сделать сравнение предсказаний моделей с помощью map2k

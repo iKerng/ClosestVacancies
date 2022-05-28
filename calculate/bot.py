@@ -1,12 +1,12 @@
 from os import environ, getenv
 
 from aiogram import Dispatcher, types
-from aiogram.dispatcher.filters import IDFilter
+from aiogram.dispatcher.filters import IDFilter, Text
 
 from calculate.workflow import cmd_start, cmd_cancel
 from calculate.workflow import choose_schedule, OrderParams, choose_city
 from calculate.workflow import choose_region, analyze_description,  search_vacs_word_keys
-from preload_dicts import reload_dict
+from calculate.preload_dicts import reload_dict
 
 
 # админская настройка для выбора используемой модели
@@ -43,7 +43,7 @@ async def reload_dicts(msg: types.Message):
 # админская команда для переключения в режим разметки
 async def switch_mode_razmetki(msg: types.Message):
     # расшифровываем код переменной из виртуального окружения
-    status_razmetki = 'ON' if getenv('is_razmetka') else 'OFF'
+    status_razmetki = 'ON' if int(getenv('is_razmetka')) else 'OFF'
     # парсим сообщения, чтобы понять, передается ли внутри устанавливаемое значение
     # или просто хотим узнать текущее значение
     list_words = msg.text.lower().split(' ')
@@ -64,9 +64,9 @@ async def switch_mode_razmetki(msg: types.Message):
 
 def register_handlers_common(dp: Dispatcher, user_id: int):
     dp.register_message_handler(cmd_start, commands="start", state="*")
+    dp.register_message_handler(cmd_start, Text(equals=['старт', 'начать', 'запуск', 'запустить']), state="*")
     dp.register_message_handler(cmd_cancel, commands="cancel", state="*")
-    # todo добавить обработку команды по слову "отмена"
-    # dp.register_message_handler(cmd_cancel, Text(equals="отмена", ignore_case=True), state="*")
+    dp.register_message_handler(cmd_cancel, Text(equals=['отмена', 'отменить'], ignore_case=True), state="*")
     dp.register_message_handler(switch_mode_razmetki, IDFilter(user_id=user_id), commands="razmetka", state='*')
     dp.register_message_handler(switch_nlp_model, IDFilter(user_id=user_id), commands="model", state='*')
     dp.register_message_handler(reload_dicts, IDFilter(user_id=user_id), commands="reload_dicts", state='*')

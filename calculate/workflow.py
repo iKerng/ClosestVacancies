@@ -8,8 +8,8 @@ from aiogram import types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-from get_vacancies import hh_api_get_vacancies as get_vacs
-from run_nlp_predict import nlp_predict
+from calculate.get_vacancies import hh_api_get_vacancies as get_vacs
+from calculate.run_nlp_predict import nlp_predict
 
 
 def sql_def():
@@ -68,9 +68,9 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
     cur.close()
     work_type_office = df_schedule['name'].to_list()
     work_type_office.remove('Удаленная работа')
-    if msg.text.lower() == 'пропустить':
-        await OrderParams.next()
     # если режим работы удаленный - то все равно из какого города работать
+    skip_step = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    skip_step.add('Пропустить')
     if msg.text == 'Удаленная работа':
         await state.update_data(schedule=df_schedule[df_schedule['name'] == msg.text]['id'].to_list()[0])
         # следовательно переходим сразу к получению названия вакансии
@@ -80,8 +80,11 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
                          reply_markup=types.ReplyKeyboardRemove())
     elif work_type_office.count(msg.text):
         await state.update_data(schedule=df_schedule[df_schedule['name'] == msg.text]['id'].to_list()[0])
-        skip_step = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        skip_step.add('Пропустить')
+        await msg.reply('Отлично! Давайте теперь определим город в котором будет осуществляться подбор вакансии.\r\n'
+                        'Для этого отправьте ответным сообщение наименование города.',
+                        reply_markup=skip_step)
+        await OrderParams.next()
+    elif msg.text.lower() == 'пропустить':
         await msg.reply('Отлично! Давайте теперь определим город в котором будет осуществляться подбор вакансии.\r\n'
                         'Для этого отправьте ответным сообщение наименование города.',
                         reply_markup=skip_step)
@@ -92,8 +95,6 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
 
 async def choose_city(msg: types.Message, state: FSMContext):
     print('choose_city')
-    if msg.text.lower() == 'пропустить':
-        await OrderParams.waiting_search_word_keys.set()
     # формируем словари регионов и городов
     cur = sql_def()
     cols_cities = DataFrame(cur.execute("SELECT name FROM pragma_table_info('cities')"))[0].to_list()
@@ -103,15 +104,15 @@ async def choose_city(msg: types.Message, state: FSMContext):
     cur.close()
     city = df_cities['name'].str.lower().to_list().count(msg.text.lower())
     region = df_region['name'].str.lower().to_list().count(msg.text.lower())
+    skip_step = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    skip_step.add('Пропустить')
     # если название города найдено в словаре
     if city > 0 or region:
         await state.update_data(city=msg.text.lower())
         count_cities = df_cities['name'].to_list().count(msg.text.lower())
         # бывают случаи, когда существует несколько городов с одинаковым называнием,
         # поэтому мы переходим к шагу выбора региона
-        skip_step = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        skip_step.add('Пропустить')
-        if count_cities > 1:
+        if count_cities > 1 or msg.text.lower() == 'пропустить':
             ls_regions_id = df_cities[df_cities['name'].str.lower() == msg.text.lower()]['parent_id'].to_list()
             list_regions = df_region[df_region['id'].isin(ls_regions_id)]['name'].to_list()
             region_buttons = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -133,7 +134,13 @@ async def choose_city(msg: types.Message, state: FSMContext):
             await OrderParams.waiting_search_word_keys.set()
     # если совпадений не найдено, то мы продолжаем ожидать от пользователя название города из справочника
     else:
-        await msg.reply('Увы, но мне не удалось найти город с таким названием. Вероятно Вы допустили опечатку, '
+        if msg.text.lower() == 'пропустить':
+            await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
+                             '"тестироващик ПО" или "аналитик данных"',
+                             reply_markup=skip_step)
+            await OrderParams.waiting_search_word_keys.set()
+        else:
+            await msg.reply('Увы, но мне не удалось найти город с таким названием. Вероятно Вы допустили опечатку, '
                         'попробуйте снова')
 
 
@@ -177,7 +184,7 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     print('choose_vacs_word_keys')
     await state.update_data()
     await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
-                     'Дождитесь сообщения о завершении.')
+                     'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
     await state.update_data(text='"' + msg.text + '"')
     print(await state.get_data())
     await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
@@ -189,7 +196,7 @@ async def analyze_description(msg: types.Message, state: FSMContext):
     await msg.answer('Механизм подбора вакансий запущен. К сожалению, необходимо немного подождать, '
                      'пока я подберу для Вас подходящие вакансии. Я обязательно Вам напишу, '
                      'как только закончу подбор вакансий')
-    df_vacs = get_vacs(params=(await state.get_data()), id=msg.from_user.id)
+    df_vacs = get_vacs(params=(await state.get_data()), user_id=msg.from_user.id)
     if int(getenv('model')) == 0:
         tfidf, w2v, sbert = nlp_predict(user_text=msg.text, vacancies=df_vacs)
         if int(getenv('is_razmetka')):
