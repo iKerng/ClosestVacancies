@@ -124,9 +124,9 @@ async def choose_city(msg: types.Message, state: FSMContext):
         # найдено одно совпадение с названием города
         else:
             if region:
-                city_id = df_region[df_region['name'].str.lower() == msg.text.lower()]['id'].to_list()[0]
+                city_id = df_region[df_region['name'].str.lower() == msg.text.lower()].index.to_list()[0]
             else:
-                city_id = df_cities[df_cities['name'].str.lower() == msg.text.lower()]['id'].to_list()[0]
+                city_id = df_cities[df_cities['name'].str.lower() == msg.text.lower()].index.to_list()[0]
             await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
                              '"тестироващик ПО" или "аналитик данных"',
                              reply_markup=skip_step)
@@ -202,8 +202,6 @@ async def analyze_description(msg: types.Message, state: FSMContext):
         if int(getenv('is_razmetka')):
             ls_result = list(set(ls_result))
             random.shuffle(ls_result, random=random.seed(42))
-        else:
-            ls_result = tfidf + w2v + sbert
     else:
         ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
     await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений машинного '

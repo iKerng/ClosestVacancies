@@ -44,7 +44,6 @@ def hh_api_get_vacancies(params=None, user_id=0):
                                                  params=filter_vacs_dict).json().get('items')
         for i in range(len(ls_vacancies)):
             if isinstance(ls_vacancies[i], list):
-                print(i)
                 continue
             new_line = pd.DataFrame(
                 [[(ls_vacancies[i]).get('id'), (ls_vacancies[i]).get('name'),
