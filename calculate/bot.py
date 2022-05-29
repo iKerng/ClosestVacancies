@@ -64,7 +64,8 @@ async def switch_mode_razmetki(msg: types.Message):
 
 def register_handlers_common(dp: Dispatcher, user_id: int):
     dp.register_message_handler(cmd_start, commands="start", state="*")
-    dp.register_message_handler(cmd_start, Text(equals=['старт', 'начать', 'запуск', 'запустить']), state="*")
+    dp.register_message_handler(cmd_start, Text(equals=['старт', 'начать', 'запуск', 'запустить'], ignore_case=True),
+                                state="*")
     dp.register_message_handler(cmd_cancel, commands="cancel", state="*")
     dp.register_message_handler(cmd_cancel, Text(equals=['отмена', 'отменить'], ignore_case=True), state="*")
     dp.register_message_handler(switch_mode_razmetki, IDFilter(user_id=user_id), commands="razmetka", state='*')

@@ -161,7 +161,7 @@ def run_sbert(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
         score = cosine_similarity([mean_pooled[0]], mean_pooled[1:])
         # получаем список схожести
         scores.append(score[0])
-        list_res = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
+    list_res = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
     if int(getenv('razmetka_done')):
         y_true = pd.Series({'55088959': 0, '55486773': 0, '55318384': 1, '66109317': 1, '55514389': 1, '55302174': 1,
                             '55306481': 1, '66107360': 1, '54300274': 0, '66109316': 0, '55319016': 0, '66109318': 0,
