@@ -34,7 +34,7 @@ async def cmd_start(msg: types.Message, state: FSMContext):
     await OrderParams.waiting_schedule.set()
     cur = sql_def()
     # запрос к БД на получение списка колонок
-    cols = DataFrame(cur.execute("SELECT name FROM pragma_table_info('schedule')"))[0].to_list()
+    cols = DataFrame(cur.execute('''pragma table_info ('schedule')'''))[1].to_list()
     # запрос к БД на получение значений словаря режима работы
     df_schedule = DataFrame(cur.execute('''SELECT * FROM SCHEDULE'''), columns=cols)
     cur.close()
@@ -62,7 +62,7 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
     print(f'Выводим значение параметра разметки: {razmetka_status}')
     cur = sql_def()
     # получаем список колонок
-    cols = DataFrame(cur.execute("SELECT name FROM pragma_table_info('schedule')"))[0].to_list()
+    cols = DataFrame(cur.execute("pragma table_info('schedule')"))[1].to_list()
     # получаем DF со словарем режима работы
     df_schedule = DataFrame(cur.execute('''SELECT * FROM SCHEDULE'''), columns=cols)
     cur.close()
@@ -97,9 +97,9 @@ async def choose_city(msg: types.Message, state: FSMContext):
     print('choose_city')
     # формируем словари регионов и городов
     cur = sql_def()
-    cols_cities = DataFrame(cur.execute("SELECT name FROM pragma_table_info('cities')"))[0].to_list()
+    cols_cities = DataFrame(cur.execute("pragma table_info('cities')"))[1].to_list()
     df_cities = DataFrame(cur.execute("SELECT DISTINCT parent_id, name FROM cities"), columns=cols_cities[1:])
-    cols_region = DataFrame(cur.execute("SELECT name FROM pragma_table_info('region')"))[0].to_list()
+    cols_region = DataFrame(cur.execute("pragma table_info('region')"))[1].to_list()
     df_region = DataFrame(cur.execute("SELECT * FROM region c"), columns=cols_region)
     cur.close()
     city = df_cities['name'].str.lower().to_list().count(msg.text.lower())
@@ -186,7 +186,6 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
                      'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
     await state.update_data(text='"' + msg.text + '"')
-    print(await state.get_data())
     await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
     await OrderParams.next()
 
@@ -197,10 +196,11 @@ async def analyze_description(msg: types.Message, state: FSMContext):
                      'пока я подберу для Вас подходящие вакансии. Я обязательно Вам напишу, '
                      'как только закончу подбор вакансий')
     df_vacs = get_vacs(params=(await state.get_data()), user_id=msg.from_user.id)
+    print(f'предсказание запущено по тексту: [{msg.text}]')
     if int(getenv('model')) == 0:
-        tfidf, w2v, sbert = nlp_predict(user_text=msg.text, vacancies=df_vacs)
+        ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
         if int(getenv('is_razmetka')):
-            ls_result = list(set(tfidf + w2v + sbert))
+            ls_result = list(set(ls_result))
             random.shuffle(ls_result, random=random.seed(42))
         else:
             ls_result = tfidf + w2v + sbert

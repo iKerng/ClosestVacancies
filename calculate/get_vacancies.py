@@ -1,5 +1,4 @@
-# from calculate import hh_token
-import hh_token
+from calculate import hh_token
 import pandas as pd
 from os import path, getcwd, getenv, environ
 import sqlite3 as sql
@@ -11,7 +10,6 @@ def hh_api_get_vacancies(params=None, user_id=0):
     if params is None:
         params = dict()
     db_path = path.abspath(getcwd()) + '/data/vacancies.db'
-    print(db_path)
     connect = sql.connect(db_path)
 
     # default parametrs for search vacancies
