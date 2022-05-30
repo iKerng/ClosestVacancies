@@ -3,6 +3,7 @@ import sqlite3 as sql
 import random
 
 from pandas import DataFrame
+from nltk import tokenize
 
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -187,7 +188,8 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
                      'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
     if msg.text.lower() != 'пропустить':
-        await state.update_data(text=msg.text.lower())
+        ls_words = [word if i == 0 else ' or ' + word for i, word in enumerate(tokenize.word_tokenize(msg.text.lower()))]
+        await state.update_data(text=''.join(ls_words))
     await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
     await OrderParams.next()
 
@@ -201,19 +203,25 @@ async def analyze_description(msg: types.Message, state: FSMContext):
     if len(df_vacs) >= 1000:
         await msg.answer(f'По названию запрашиваемых вакансий всего найдено {quantity} вакансий, но мы будем искать '
                          f'среди 1000 самых свежих опубликованных')
+    elif quantity == 0:
+        print(await state.get_data())
+        name_vac = (await state.get_data()).get('text')
+        await msg.answer(f"По вашему запросу названия [{name_vac}] вакансий не найдено")
+        await state.finish()
+        await msg.answer('Для нового поиска нажмите /start')
     else:
         await msg.answer(f'Всего найдено: {quantity} вакансий(я) по заправшиваемым параметрам.')
-    print(f'предсказание запущено по тексту: [{msg.text}]')
-    if int(getenv('model')) == 0:
-        ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
-        if int(getenv('is_razmetka')):
-            ls_result = list(set(ls_result))
-            random.shuffle(ls_result, random=random.seed(42))
-    else:
-        ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
-    await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений машинного '
-                    'обучение, а именно NLP, завершен!')
-    for i, url in enumerate(ls_result):
-        await msg.answer(str(i + 1) + ') ' + url)
-    await state.finish()
-    await msg.answer('Для нового поиска нажмите /start')
+        print(f'предсказание запущено по тексту: [{msg.text}]')
+        if int(getenv('model')) == 0:
+            ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
+            if int(getenv('is_razmetka')):
+                ls_result = list(set(ls_result))
+                random.shuffle(ls_result, random=random.seed(42))
+        else:
+            ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
+        await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений машинного '
+                        'обучение, а именно NLP, завершен!')
+        for i, url in enumerate(ls_result):
+            await msg.answer(str(i + 1) + ') ' + url)
+        await state.finish()
+        await msg.answer('Для нового поиска нажмите /start')

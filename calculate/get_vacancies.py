@@ -41,21 +41,25 @@ def hh_api_get_vacancies(params: object = None, user_id: object = 0) -> object:
         rs_get = rq.get(url=link_api_hh+'vacancies/', params=filter_vacs_dict).json()
         ls_vacancies = rs_get.get('items')
         count_vacs = rs_get.get('found')
-        iters = [x for x in range(int(count_vacs/per_page)+1)][1:int(limit/per_page)]
-        for iter_page in iters:
-            filter_vacs_dict.update({'page': iter_page})
-            ls_vacancies = ls_vacancies + rq.get(url=link_api_hh+'vacancies/',
-                                                 params=filter_vacs_dict).json().get('items')
-        for i in range(len(ls_vacancies)):
-            if isinstance(ls_vacancies[i], list):
-                continue
-            new_line = pd.DataFrame(
-                [[(ls_vacancies[i]).get('id'), (ls_vacancies[i]).get('name'),
-                  (ls_vacancies[i]).get('alternate_url'), (ls_vacancies[i]).get('url')]],
-                columns=ls_columns,
-                index=[i])
-            vacancies = pd.concat([vacancies, new_line], axis=0)
-        vacancies['description'] = vacancies['api_url'].apply(lambda x: rq.get(x).json().get('description'))
-        vacancies.to_sql('vacancies_'+str(user_id), con=connect, if_exists='replace', index=False)
+        print(f'Всего найдено {count_vacs} вакансий.')
+        if count_vacs != 0:
+            iters = [x for x in range(int(count_vacs/per_page)+1)][1:int(limit/per_page)]
+            for iter_page in iters:
+                filter_vacs_dict.update({'page': iter_page})
+                ls_vacancies = ls_vacancies + rq.get(url=link_api_hh+'vacancies/',
+                                                     params=filter_vacs_dict).json().get('items')
+            for i in range(len(ls_vacancies)):
+                if isinstance(ls_vacancies[i], list):
+                    continue
+                new_line = pd.DataFrame(
+                    [[(ls_vacancies[i]).get('id'), (ls_vacancies[i]).get('name'),
+                      (ls_vacancies[i]).get('alternate_url'), (ls_vacancies[i]).get('url')]],
+                    columns=ls_columns,
+                    index=[i])
+                vacancies = pd.concat([vacancies, new_line], axis=0)
+            vacancies['description'] = vacancies['api_url'].apply(lambda x: rq.get(x).json().get('description'))
+            vacancies.to_sql('vacancies_'+str(user_id), con=connect, if_exists='replace', index=False)
+        else:
+            vacancies = pd.DataFrame()
     connect.close()
     return vacancies, count_vacs
