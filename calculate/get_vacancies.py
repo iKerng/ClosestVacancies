@@ -5,7 +5,7 @@ import sqlite3 as sql
 import requests as rq
 
 
-def hh_api_get_vacancies(params=None, user_id=0):
+def hh_api_get_vacancies(params: object = None, user_id: object = 0) -> object:
     # sqlite connect params
     if params is None:
         params = dict()
@@ -15,14 +15,17 @@ def hh_api_get_vacancies(params=None, user_id=0):
     # default parametrs for search vacancies
     token = hh_token.get_token()
     link_api_hh = 'https://api.hh.ru/'
+    area = 113 # РФ
     date_from = '1970-01-02'
     page = 0
     per_page = 100
     limit = 1000
     ls_columns = ['id', 'name', 'url', 'api_url']
     filter_vacs_dict = {'Authorization': token, 'per_page': per_page, 'page': page, 'date_from': date_from,
-                        'order_by': 'publication_time', }
+                        'order_by': 'publication_time', 'area': area}
     filter_vacs_dict.update(params)
+    print(f'Параметры запроса к апи HH: {filter_vacs_dict}')
+    count_vacs = 0
 
     # запускаем обработку вакансий
     if int(getenv('is_razmetka')):
@@ -30,6 +33,7 @@ def hh_api_get_vacancies(params=None, user_id=0):
         print('Находимся в режиме разметки, данные берём из БД')
         vacancies = pd.read_sql('select * from vacancies_'+str(user_id), con=connect, index_col='id')
         environ['model'] = '0'
+        count_vacs = len(vacancies)
     else:
         print('Находимся в режиме работы с HH.ru')
         # а для режима пром - берем данные с HH.ru
@@ -54,4 +58,4 @@ def hh_api_get_vacancies(params=None, user_id=0):
         vacancies['description'] = vacancies['api_url'].apply(lambda x: rq.get(x).json().get('description'))
         vacancies.to_sql('vacancies_'+str(user_id), con=connect, if_exists='replace', index=False)
     connect.close()
-    return vacancies
+    return vacancies, count_vacs
