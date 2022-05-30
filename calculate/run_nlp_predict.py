@@ -185,8 +185,10 @@ def run_sbert(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
 
 def nlp_predict(user_text='', vacancies=pd.DataFrame()):
     # предобработка текста
+    print('Запускаем предобработку текста скаченных вакансий и текста от пользователя')
     vacancies['cleared_vacs'] = vacancies['description'].apply(lambda x: clean_tokenize(x))
     cleared_user_text = clean_tokenize(text=user_text)
+    print('Закончили предобработку текста скаченных вакансий')
 
     # рабочая модель (для разметки используем весь набор)
     mode_rezhim = int(getenv('model'))

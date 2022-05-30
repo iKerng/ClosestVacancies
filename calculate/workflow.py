@@ -3,7 +3,7 @@ import sqlite3 as sql
 import random
 
 from pandas import DataFrame
-from nltk import tokenize
+import nltk
 
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -12,6 +12,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from calculate.get_vacancies import hh_api_get_vacancies as get_vacs
 from calculate.run_nlp_predict import nlp_predict
 
+nltk.download('punkt')
 
 def sql_def():
     db_path = path.abspath(getcwd()) + '/data/vacancies.db'
@@ -188,7 +189,7 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
                      'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
     if msg.text.lower() != 'пропустить':
-        ls_words = [word if i == 0 else ' or ' + word for i, word in enumerate(tokenize.word_tokenize(msg.text.lower()))]
+        ls_words = [word if i == 0 else ' or ' + word for i, word in enumerate(nltk.tokenize.word_tokenize(msg.text.lower()))]
         await state.update_data(text=''.join(ls_words))
     await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
     await OrderParams.next()
