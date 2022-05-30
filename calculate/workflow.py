@@ -101,7 +101,6 @@ async def choose_city(msg: types.Message, state: FSMContext):
     df_cities = DataFrame(cur.execute("SELECT DISTINCT parent_id, name FROM cities"), columns=cols_cities[1:])
     cols_region = DataFrame(cur.execute("pragma table_info('region')"))[1].to_list()
     df_region = DataFrame(cur.execute("SELECT * FROM region c"), columns=cols_region)
-    cur.close()
     city = df_cities['name'].str.lower().to_list().count(msg.text.lower())
     region = df_region['name'].str.lower().to_list().count(msg.text.lower())
     skip_step = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -124,9 +123,10 @@ async def choose_city(msg: types.Message, state: FSMContext):
         # найдено одно совпадение с названием города
         else:
             if region:
-                city_id = df_region[df_region['name'].str.lower() == msg.text.lower()].index.to_list()[0]
+                city_id = df_region[df_region['name'].str.lower() == msg.text.lower()]['id'].to_list()[0]
             else:
-                city_id = df_cities[df_cities['name'].str.lower() == msg.text.lower()].index.to_list()[0]
+                df_cities = DataFrame(cur.execute("SELECT * FROM cities"), columns=cols_cities)
+                city_id = df_cities[df_cities['name'].str.lower() == msg.text.lower()]['id'].to_list()[0]
             await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
                              '"тестироващик ПО" или "аналитик данных"',
                              reply_markup=skip_step)
@@ -142,6 +142,7 @@ async def choose_city(msg: types.Message, state: FSMContext):
         else:
             await msg.reply('Увы, но мне не удалось найти город с таким названием. Вероятно Вы допустили опечатку, '
                         'попробуйте снова')
+    cur.close()
 
 
 async def choose_region(msg: types.Message, state: FSMContext):
@@ -185,7 +186,8 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     await state.update_data()
     await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
                      'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
-    await state.update_data(text=msg.text.lower())
+    if msg.text.lower() != 'пропустить':
+        await state.update_data(text=msg.text.lower())
     await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
     await OrderParams.next()
 
@@ -199,6 +201,8 @@ async def analyze_description(msg: types.Message, state: FSMContext):
     if len(df_vacs) >= 1000:
         await msg.answer(f'По названию запрашиваемых вакансий всего найдено {quantity} вакансий, но мы будем искать '
                          f'среди 1000 самых свежих опубликованных')
+    else:
+        await msg.answer(f'Всего найдено: {quantity} вакансий(я) по заправшиваемым параметрам.')
     print(f'предсказание запущено по тексту: [{msg.text}]')
     if int(getenv('model')) == 0:
         ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
