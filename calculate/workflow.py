@@ -201,17 +201,12 @@ async def analyze_description(msg: types.Message, state: FSMContext):
                      'пока я подберу для Вас подходящие вакансии. Я обязательно Вам напишу, '
                      'как только закончу подбор вакансий')
     df_vacs, quantity = get_vacs(params=(await state.get_data()), user_id=msg.from_user.id)
-    if len(df_vacs) >= 1000:
-        await msg.answer(f'По названию запрашиваемых вакансий всего найдено {quantity} вакансий, но мы будем искать '
-                         f'среди 1000 самых свежих опубликованных')
-    elif quantity == 0:
-        print(await state.get_data())
-        name_vac = (await state.get_data()).get('text')
-        await msg.answer(f"По вашему запросу названия [{name_vac}] вакансий не найдено")
-        await state.finish()
-        await msg.answer('Для нового поиска нажмите /start')
-    else:
-        await msg.answer(f'Всего найдено: {quantity} вакансий(я) по заправшиваемым параметрам.')
+    if quantity != 0:
+        if len(df_vacs) >= 1000:
+            await msg.answer(f'По названию запрашиваемых вакансий всего найдено {quantity} вакансий, но мы будем искать '
+                             f'среди 1000 самых свежих опубликованных')
+        else:
+            await msg.answer(f'Всего найдено: {quantity} вакансий(я) по заправшиваемым параметрам.')
         print(f'предсказание запущено по тексту: [{msg.text}]')
         if int(getenv('model')) == 0:
             ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
@@ -224,5 +219,11 @@ async def analyze_description(msg: types.Message, state: FSMContext):
                         'обучение, а именно NLP, завершен!')
         for i, url in enumerate(ls_result):
             await msg.answer(str(i + 1) + ') ' + url)
+        await state.finish()
+        await msg.answer('Для нового поиска нажмите /start')
+    else:
+        print(await state.get_data())
+        name_vac = (await state.get_data()).get('text')
+        await msg.answer(f"По вашему запросу названия [{name_vac}] вакансий не найдено")
         await state.finish()
         await msg.answer('Для нового поиска нажмите /start')
