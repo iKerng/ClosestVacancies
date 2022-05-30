@@ -48,16 +48,16 @@ def run_tfidf(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
     # сравниваем векторы и получаем список схожести
     scores = cosine_similarity(user_vec, vacs_vec)[0]
     # ранжируем результаты сравнения
-    tf_idf_top10 = pd.Series(scores).sort_values(ascending=True).index.to_list()[0:10]
+    tf_idf_top10 = pd.Series(scores).sort_values(ascending=False).index.to_list()[0:10]
     if int(getenv('razmetka_done')):
         y_true = pd.Series({'55088959': 0, '55486773': 0, '55318384': 1, '66109317': 1, '55514389': 1, '55302174': 1,
                             '55306481': 1, '66107360': 1, '54300274': 0, '66109316': 0, '55319016': 0, '66109318': 0,
                             '54825318': 0, '55517668': 0, '55302220': 0, '54552531': 1, '55302191': 0, '55594648': 1,
                             '50630870': 1, '52396406': 1, '54692864': 1, '55458328': 1, '55588931': 0, '66146489': 0,
                             '54717873': 0, '54659098': 1, '54800651': 1}, name='fact')
-        ids = pd.Series(scores).sort_values(ascending=True).index.to_list()[:10]
+        ids = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
         scores = list(scores)
-        scores.sort(reverse=False)
+        scores.sort(reverse=True)
         scores = scores[:10]
         res_map = pd.Series(scores, index=vacancies.iloc[ids].index.to_list(), name='score')
         df_map = pd.concat([res_map, y_true], axis=1, join='inner')
@@ -99,16 +99,16 @@ def run_word2vec(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_
     # сравниваем векторы и получаем список схожести
     scores = model.dv.cosine_similarities(user_vec, vac_vecs)
     # ранжируем результаты сравнения
-    res_top_list = pd.Series(scores).sort_values(ascending=True).index.to_list()[:10]
+    res_top_list = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
     if int(getenv('razmetka_done')):
         y_true = pd.Series({'55088959': 0, '55486773': 0, '55318384': 1, '66109317': 1, '55514389': 1, '55302174': 1,
                             '55306481': 1, '66107360': 1, '54300274': 0, '66109316': 0, '55319016': 0, '66109318': 0,
                             '54825318': 0, '55517668': 0, '55302220': 0, '54552531': 1, '55302191': 0, '55594648': 1,
                             '50630870': 1, '52396406': 1, '54692864': 1, '55458328': 1, '55588931': 0, '66146489': 0,
                             '54717873': 0, '54659098': 1, '54800651': 1}, name='fact')
-        ids = pd.Series(scores).sort_values(ascending=True).index.to_list()[:10]
+        ids = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
         scores = list(scores)
-        scores.sort(reverse=False)
+        scores.sort(reverse=True)
         scores = scores[:10]
         res_map = pd.Series(scores, index=vacancies.iloc[ids].index.to_list(), name='score')
         df_map = pd.concat([res_map, y_true], axis=1, join='inner')
@@ -161,16 +161,16 @@ def run_sbert(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
         score = cosine_similarity([mean_pooled[0]], mean_pooled[1:])
         # получаем список схожести
         scores.append(score[0])
-    list_res = pd.Series(scores).sort_values(ascending=True).index.to_list()[:10]
+    list_res = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
     if int(getenv('razmetka_done')):
         y_true = pd.Series({'55088959': 0, '55486773': 0, '55318384': 1, '66109317': 1, '55514389': 1, '55302174': 1,
                             '55306481': 1, '66107360': 1, '54300274': 0, '66109316': 0, '55319016': 0, '66109318': 0,
                             '54825318': 0, '55517668': 0, '55302220': 0, '54552531': 1, '55302191': 0, '55594648': 1,
                             '50630870': 1, '52396406': 1, '54692864': 1, '55458328': 1, '55588931': 0, '66146489': 0,
                             '54717873': 0, '54659098': 1, '54800651': 1}, name='fact')
-        ids = pd.Series(scores).sort_values(ascending=True).index.to_list()[:10]
+        ids = pd.Series(scores).sort_values(ascending=False).index.to_list()[:10]
         scores = list(scores)
-        scores.sort(reverse=False)
+        scores.sort(reverse=True)
         scores = scores[:10]
         res_map = pd.Series(scores, index=vacancies.iloc[ids].index.to_list(), name='score')
         df_map = pd.concat([res_map, y_true], axis=1, join='inner')
