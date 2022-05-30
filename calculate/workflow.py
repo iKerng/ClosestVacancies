@@ -189,8 +189,11 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
                      'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
     if msg.text.lower() != 'пропустить':
-        ls_words = [word if i == 0 else ' or ' + word for i, word in enumerate(nltk.tokenize.word_tokenize(msg.text.lower()))]
-        await state.update_data(text=''.join(ls_words))
+        if (msg.text.lower()).find('или') != -1:
+            res = ' OR '.join([phrase for phrase in (msg.text.lower()).split('или')])
+        else:
+            res = ' OR '.join(word for word in (msg.text.lower()).replace('"', '').split(' '))
+        await state.update_data(text=''.join(res))
     await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
     await OrderParams.next()
 
