@@ -1,10 +1,10 @@
 import asyncio
-from os import getenv, environ
+from os import getenv
 
 from aiogram import Bot, Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-from calculate.bot import register_handlers_common, register_continue
+from calculate.bot import register_handlers_common, register_continue, register_handlers_admin
 
 from calculate.set_env_default_params import set_env
 
@@ -13,11 +13,11 @@ async def run_bot():
 
     # берем токен телеграм-бота из виртуального окружения
     bot_admin = getenv('bot_admin')
+    whitelist = [int(idents) for idents in getenv('whitelist').split(',')]
 
     dp = Dispatcher(bot, storage=MemoryStorage(), loop=loop)
-
-    # проверяем не является ли сообщение командой пользователя или командой пользователя-админа
-    register_handlers_common(dp, int(bot_admin))
+    register_handlers_common(dp, whitelist)
+    register_handlers_admin(dp, int(bot_admin))
     register_continue(dp)
 
     # запускаем бота

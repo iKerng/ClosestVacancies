@@ -1,9 +1,9 @@
-from os import environ, getenv
+from os import environ, getenv, path, getcwd
 
 from aiogram import Dispatcher, types
-from aiogram.dispatcher.filters import IDFilter, Text
+from aiogram.dispatcher.filters import IDFilter, Text, BoundFilter
 
-from calculate.workflow import cmd_start, cmd_cancel
+from calculate.workflow import cmd_start, cmd_cancel, cmd_start_new
 from calculate.workflow import choose_schedule, OrderParams, choose_city
 from calculate.workflow import choose_region, analyze_description,  search_vacs_word_keys
 from calculate.preload_dicts import reload_dict
@@ -62,12 +62,49 @@ async def switch_mode_razmetki(msg: types.Message):
         await msg.reply('Данная команда мне неизвестна.')
 
 
-def register_handlers_common(dp: Dispatcher, user_id: int):
-    dp.register_message_handler(cmd_start, commands="start", state="*")
-    dp.register_message_handler(cmd_start, Text(equals=['старт', 'начать', 'запуск', 'запустить'], ignore_case=True),
-                                state="*")
-    dp.register_message_handler(cmd_cancel, commands="cancel", state="*")
-    dp.register_message_handler(cmd_cancel, Text(equals=['отмена', 'отменить'], ignore_case=True), state="*")
+class IsAccess(BoundFilter):
+    key = 'in_whitelist'
+
+    def __init__(self, in_whitelist):
+        self.in_whitelist = in_whitelist
+
+    async def check(self, msg: types.Message):
+        new_user_id = msg.from_user.id
+        if [int(ids) for ids in getenv('whitelist').split(',')].count(new_user_id):
+            return new_user_id
+
+
+def register_handlers_common(dp: Dispatcher, user_id):
+    print(f'Список идентификаторов пользователей, которым разрешено пользоваться сервисом {user_id}')
+    dp.register_message_handler(cmd_start, IsAccess(in_whitelist=user_id), commands="start", state="*")
+    dp.register_message_handler(cmd_start_new, commands="start", state="*")
+
+    @dp.callback_query_handler(text="add_user")
+    async def add_user(call: types.CallbackQuery):
+        new_user_id = call.message.reply_markup.inline_keyboard[0][0].text.split(' ')[4]
+        if not (getenv('whitelist')).split(',').count(new_user_id):
+            environ['whitelist'] = getenv('whitelist') + ',' + new_user_id
+            await call.message.answer(f'Пользователю с ID [{new_user_id}] предоставлен доступ к сервису',
+                                      )
+            await call.bot.send_message(int(new_user_id), text='Вам предоставлен доступ к сервису')
+            print(f"Список идентификаторов пользователей, которым разрешено пользоваться "
+                  f"сервисом [{getenv('whitelist')}]")
+            full_path = path.abspath(getcwd()) + '/calculate/set_env_default_params.py'
+            with open(full_path, 'r', encoding='utf8') as file:
+                text_file = file.read()[:-1] + ',' + new_user_id + "'"
+                file.close()
+            file = open(full_path, 'w')
+            file.write(text_file)
+            file.close()
+
+    dp.register_message_handler(cmd_start, IsAccess(in_whitelist=user_id),
+                                Text(equals=['старт', 'начать', 'запуск', 'запустить'], ignore_case=True), state="*")
+    dp.register_message_handler(cmd_cancel, IsAccess(in_whitelist=user_id), commands="cancel", state="*")
+    dp.register_message_handler(cmd_cancel, IsAccess(in_whitelist=user_id),
+                                Text(equals=['отмена', 'отменить'], ignore_case=True), state="*")
+
+
+def register_handlers_admin(dp: Dispatcher, user_id: int):
     dp.register_message_handler(switch_mode_razmetki, IDFilter(user_id=user_id), commands="razmetka", state='*')
     dp.register_message_handler(switch_nlp_model, IDFilter(user_id=user_id), commands="model", state='*')
     dp.register_message_handler(reload_dicts, IDFilter(user_id=user_id), commands="reload_dicts", state='*')

@@ -14,6 +14,7 @@ from calculate.run_nlp_predict import nlp_predict
 
 nltk.download('punkt')
 
+
 def sql_def():
     db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     connect = sql.connect(db_path)
@@ -28,6 +29,26 @@ class OrderParams(StatesGroup):
     # todo: добавить еще справочники
     waiting_search_word_keys = State()
     waiting_description = State()
+
+
+async def cmd_start_new(msg: types.Message):
+    whitelist_id = [int(idents) for idents in getenv('whitelist').split(',')]
+    if not whitelist_id.count(msg.from_user.id):
+        print(f'Пришло сообщение от нового пользователя с ID [{msg.from_user.id}] '
+              f'с именем [{msg.from_user.first_name}]')
+        new_user_id = msg.from_user.id
+        new_user_name = msg.from_user.full_name
+        await msg.answer('Информация о Вас поступила администратору. Пожалуйста, '
+                         'ожидайте получения доступа к сервису бота')
+        # bot_new = Bot(token=getenv('bot_token'))
+        add_command = 'Добавить в WhiteList пользователя ' + str(new_user_id)
+        inl_kb = [types.InlineKeyboardButton(add_command, callback_data='add_user')]
+        keyboard = types.InlineKeyboardMarkup(row_width=1)
+        keyboard.add(*inl_kb)
+        admin_id = int(getenv('bot_admin'))
+        await msg.bot.send_message(chat_id=admin_id,
+                                   text=f'Пользователь с именем [{new_user_name}] и ID: [{new_user_id}] хочет '
+                                        f'воспльзоваться услугой бота', reply_markup=keyboard)
 
 
 async def cmd_start(msg: types.Message, state: FSMContext):
@@ -143,7 +164,7 @@ async def choose_city(msg: types.Message, state: FSMContext):
             await OrderParams.waiting_search_word_keys.set()
         else:
             await msg.reply('Увы, но мне не удалось найти город с таким названием. Вероятно Вы допустили опечатку, '
-                        'попробуйте снова')
+                            'попробуйте снова')
     cur.close()
 
 
@@ -206,8 +227,8 @@ async def analyze_description(msg: types.Message, state: FSMContext):
     df_vacs, quantity = get_vacs(params=(await state.get_data()), user_id=msg.from_user.id)
     if quantity != 0:
         if len(df_vacs) >= 1000:
-            await msg.answer(f'По названию запрашиваемых вакансий всего найдено {quantity} вакансий, но мы будем искать '
-                             f'среди 1000 самых свежих опубликованных')
+            await msg.answer(f'По названию запрашиваемых вакансий всего найдено {quantity} вакансий, но мы будем искать'
+                             f' среди 1000 самых свежих опубликованных')
         else:
             await msg.answer(f'Всего найдено: {quantity} вакансий(я) по заправшиваемым параметрам.')
         print(f'предсказание запущено по тексту: [{msg.text}]')
@@ -218,8 +239,8 @@ async def analyze_description(msg: types.Message, state: FSMContext):
                 random.shuffle(ls_result, random=random.seed(42))
         else:
             ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
-        await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений машинного '
-                        'обучение, а именно NLP, завершен!')
+        await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений '
+                        'машинного обучение, а именно NLP, завершен!')
         for i, url in enumerate(ls_result):
             await msg.answer(str(i + 1) + ') ' + url)
         await state.finish()
