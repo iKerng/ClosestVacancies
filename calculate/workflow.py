@@ -33,22 +33,30 @@ class OrderParams(StatesGroup):
 
 async def cmd_start_new(msg: types.Message):
     whitelist_id = [int(idents) for idents in getenv('whitelist').split(',')]
-    if not whitelist_id.count(msg.from_user.id):
-        print(f'Пришло сообщение от нового пользователя с ID [{msg.from_user.id}] '
-              f'с именем [{msg.from_user.first_name}]')
-        new_user_id = msg.from_user.id
-        new_user_name = msg.from_user.full_name
-        await msg.answer('Информация о Вас поступила администратору. Пожалуйста, '
-                         'ожидайте получения доступа к сервису бота')
-        # bot_new = Bot(token=getenv('bot_token'))
-        add_command = 'Добавить в WhiteList пользователя ' + str(new_user_id)
-        inl_kb = [types.InlineKeyboardButton(add_command, callback_data='add_user')]
-        keyboard = types.InlineKeyboardMarkup(row_width=1)
-        keyboard.add(*inl_kb)
-        admin_id = int(getenv('bot_admin'))
-        await msg.bot.send_message(chat_id=admin_id,
-                                   text=f'Пользователь с именем [{new_user_name}] и ID: [{new_user_id}] хочет '
-                                        f'воспльзоваться услугой бота', reply_markup=keyboard)
+    if len(getenv('blacklist')) not in (0, 2):
+        blacklist_id = [int(idents) for idents in getenv('blacklist').split(',')]
+    else:
+        blacklist_id = []
+    if not blacklist_id.count(msg.from_user.id):
+        if not whitelist_id.count(msg.from_user.id):
+            print(f'Пришло сообщение от нового пользователя с ID [{msg.from_user.id}] '
+                  f'с именем [{msg.from_user.first_name}]')
+            new_user_id = msg.from_user.id
+            new_user_name = msg.from_user.full_name
+            await msg.answer('Информация о Вас поступила администратору. Пожалуйста, '
+                             'ожидайте получения доступа к сервису бота')
+            add_whitelist = f'Добавить в WhiteList пользователя {msg.from_user.first_name} с ID {str(new_user_id)}'
+            add_blacklist = f'Заблокировать пользователя {msg.from_user.first_name} с ID [{str(new_user_id)}]'
+            inl_kb = [types.InlineKeyboardButton(add_whitelist, callback_data='add_user')
+                      , types.InlineKeyboardButton(add_blacklist, callback_data='block_user')]
+            keyboard = types.InlineKeyboardMarkup(row_width=1)
+            keyboard.add(*inl_kb)
+            admin_id = int(getenv('bot_admin'))
+            await msg.bot.send_message(chat_id=admin_id,
+                                       text=f'Пользователь с именем [{new_user_name}] и ID: [{new_user_id}] хочет '
+                                            f'воспльзоваться услугой бота', reply_markup=keyboard)
+    else:
+        await msg.answer('Вы заблокированы админом. Доступ к сервису запрещен.')
 
 
 async def cmd_start(msg: types.Message, state: FSMContext):
@@ -65,16 +73,45 @@ async def cmd_start(msg: types.Message, state: FSMContext):
     work_type_button = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     work_type_button.add(*work_type_office)
     await msg.reply(
-        f"{msg.from_user.first_name}, Вас приветствует бот по поиску вакансий с использованием "
-        f"Natural Language Processing" +
-        "\r\n\r\nДля поиска вакансий необходимо предварительно получить некоторые данные." +
-        "\r\n\r\nВыберите формат работы", reply_markup=work_type_button)
+        f"{msg.from_user.first_name}, Вас приветствует бот по подбору вакансий с использованием "
+        f"машинного обучения на базе Natural Language Processing\r\n\r\nДля более точного подбора вакансии настоятельно"
+        f" рекомендую воспользоваться командой /help\r\n\r\n"
+        f"Для поиска вакансий необходимо предварительно получить некоторые данные.\r\n\r\n"
+        f"Выберите формат работы", reply_markup=work_type_button)
 
 
-async def cmd_cancel(message: types.Message, state: FSMContext):
+async def cmd_cancel(msg: types.Message, state: FSMContext):
     # функция отмены текущего процесса
     await state.finish()
-    await message.answer("Действие отменено", reply_markup=types.ReplyKeyboardRemove())
+    await msg.answer("Действие отменено", reply_markup=types.ReplyKeyboardRemove())
+
+
+async def cmd_help(msg: types.Message):
+    # msg.message_id
+    desc_role = 'Описание работы фильтра "Наименование роли"'
+    desc_func = 'Рекомендация по вводу текста функциональных обязанностей'
+    desc_main = 'Основное описание помощника'
+    send_text = 'Данный бот производит поиск наиболее подходящих вакансий на основе поданного текста на этапе ' \
+                'описания функциональных обязанностей. Бот использует методы машинного обучения по сопоставлению ' \
+                'двух текстов (текста от пользователя и текста описания вакансий, выгруженных с сайта HH.ru на ' \
+                'основании заполненных фильтров (все фильтры необязательны и их указание можно пропустить тем не ' \
+                'менее рекомендую их заполнять, так как будет более релевантный результат)).\r\n' \
+                '1) Сначала нужно указать тип режима работы (если режим удаленный, то следующая стадия ' \
+                'будет 3)\r\n' \
+                '2) Необходимо указаать город\r\n' \
+                '2.1) Если существует несколько городов в разных областях с одинаковым городом, ' \
+                'то Вам будет предложен выбор региона, в котором был найден город'  \
+                '3) Необходимо указать "Наименование роли" (по данному тексту будет производиться отбор ' \
+                'вакансий). Более подробное описание доступно по кнопке\r\n' \
+                '4) Необходимо описать функциональные обязанности, которые Вы хотите выполнять (более подробное' \
+                ' описание доступно по кнопке).\r\n'
+    inl_kb = [types.InlineKeyboardButton(desc_role, callback_data='role_desc'),
+              types.InlineKeyboardButton(desc_func, callback_data='func_desc'),
+              types.InlineKeyboardButton(desc_main, callback_data='return_desc')]
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(*inl_kb)
+    await msg.answer(text=send_text,
+                     reply_markup=keyboard)
 
 
 # функция выбора режим работы.

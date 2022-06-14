@@ -6,7 +6,9 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 from calculate.bot import register_handlers_common, register_continue, register_handlers_admin
 
-from calculate.set_env_default_params import set_env
+from data.set_env_default_params import set_env
+from data.set_env_blacklist import set_env_blacklist
+from data.set_env_whitelist import set_env_whitelist
 
 
 async def run_bot():
@@ -16,9 +18,10 @@ async def run_bot():
     whitelist = [int(idents) for idents in getenv('whitelist').split(',')]
 
     dp = Dispatcher(bot, storage=MemoryStorage(), loop=loop)
+
     register_handlers_common(dp, whitelist)
     register_handlers_admin(dp, int(bot_admin))
-    register_continue(dp)
+    register_continue(dp, whitelist)
 
     # запускаем бота
     await dp.start_polling()
@@ -26,6 +29,8 @@ async def run_bot():
 
 if __name__ == '__main__':
     set_env()
+    set_env_whitelist()
+    set_env_blacklist()
 
     bot_token = getenv('bot_token')
     if not bot_token:
