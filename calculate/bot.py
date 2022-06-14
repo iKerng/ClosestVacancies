@@ -11,8 +11,11 @@ from calculate.preload_dicts import reload_dict
 
 
 def add_to_list(id: int, list: str):
-    cur_value = getenv(list)
-    new_value = cur_value + ',' + str(id)
+    cur_str_ids = getenv(list)
+    if len(cur_str_ids) > 0:
+        new_value = cur_str_ids + ',' + str(id)
+    else:
+        new_value = str(id)
     environ[list] = new_value
 
     path_file = path.abspath(getcwd()) + '/data/set_env_' + list + '.py'
@@ -20,7 +23,7 @@ def add_to_list(id: int, list: str):
     cur_text = file.read()
     file.close()
     file = open(path_file, 'w', encoding='utf8')
-    new_text = cur_text[:-1] + ',' + str(id) + "'"
+    new_text = cur_text.split(" '")[0] + " '" + str(id) + "'"
     file.write(new_text)
     file.close()
 
@@ -203,8 +206,10 @@ def register_handlers_common(dp: Dispatcher, user_id):
                       'то Вам будет предложен выбор региона, в котором был найден город\r\n' \
                       '3) Необходимо указать "Наименование роли" (по данному тексту будет производиться отбор ' \
                       'вакансий). Более подробное описание доступно по кнопке\r\n' \
-                      '4) Необходимо описать функциональные обязанности, которые Вы хотите выполнять (более подробное ' \
-                      'описание доступно по кнопке).'
+                      '4) Необходимо описать функциональные обязанности, которые Вы хотите выполнять (более подробное' \
+                      ' описание доступно по кнопке).\r\n\r\n' \
+                      'Так же у бота реализованы команды /cancel или просто написать "отмена" или "отменить" в чат ' \
+                      'для отмены текущего поиска.'
         desc_role = 'Описание работы фильтра "Наименование роли"'
         desc_func = 'Рекомендации по вводу текста функциональных обязанностей'
         desc_main = 'Основное описание'

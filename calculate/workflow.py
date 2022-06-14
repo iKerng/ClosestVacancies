@@ -104,7 +104,9 @@ async def cmd_help(msg: types.Message):
                 '3) Необходимо указать "Наименование роли" (по данному тексту будет производиться отбор ' \
                 'вакансий). Более подробное описание доступно по кнопке\r\n' \
                 '4) Необходимо описать функциональные обязанности, которые Вы хотите выполнять (более подробное' \
-                ' описание доступно по кнопке).\r\n'
+                ' описание доступно по кнопке).\r\n\r\n' \
+                'Так же у бота реализованы команды /cancel или просто написать "отмена" или "отменить" в чат для ' \
+                'отмены текущего поиска.'
     inl_kb = [types.InlineKeyboardButton(desc_role, callback_data='role_desc'),
               types.InlineKeyboardButton(desc_func, callback_data='func_desc'),
               types.InlineKeyboardButton(desc_main, callback_data='return_desc')]
