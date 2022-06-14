@@ -23,7 +23,7 @@ def add_to_list(id: int, list: str):
     cur_text = file.read()
     file.close()
     file = open(path_file, 'w', encoding='utf8')
-    new_text = cur_text.split(" '")[0] + " '" + str(id) + "'"
+    new_text = cur_text.split(" '")[0] + " '" + new_value + "'"
     file.write(new_text)
     file.close()
 
