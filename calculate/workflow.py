@@ -106,7 +106,8 @@ async def cmd_help(msg: types.Message):
                 '4) Необходимо описать функциональные обязанности, которые Вы хотите выполнять (более подробное' \
                 ' описание доступно по кнопке).\r\n\r\n' \
                 'Так же у бота реализованы команды /cancel или просто написать "отмена" или "отменить" в чат для ' \
-                'отмены текущего поиска.'
+                'отмены текущего поиска.\r\n\r\n' \
+                'P.S.\r\nКнопки не будут работать, если Вы уже запустили процесс подбора вакансий'
     inl_kb = [types.InlineKeyboardButton(desc_role, callback_data='role_desc'),
               types.InlineKeyboardButton(desc_func, callback_data='func_desc'),
               types.InlineKeyboardButton(desc_main, callback_data='return_desc')]
@@ -137,17 +138,18 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
         await state.update_data(schedule=df_schedule[df_schedule['name'] == msg.text]['id'].to_list()[0])
         # следовательно переходим сразу к получению названия вакансии
         await OrderParams.waiting_search_word_keys.set()
-        await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
-                         '"тестироващик ПО" или "аналитик данных"',
+        await msg.answer('Напишите какую роль Вы хотите выполнять, например: '
+                         '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
+                         'время запущенного процесса подбора вакансий)',
                          reply_markup=types.ReplyKeyboardRemove())
     elif work_type_office.count(msg.text):
         await state.update_data(schedule=df_schedule[df_schedule['name'] == msg.text]['id'].to_list()[0])
-        await msg.reply('Отлично! Давайте теперь определим город в котором будет осуществляться подбор вакансии.\r\n'
+        await msg.reply('Давайте теперь определим город в котором будет осуществляться подбор вакансий.\r\n'
                         'Для этого отправьте ответным сообщение наименование города.',
                         reply_markup=skip_step)
         await OrderParams.next()
     elif msg.text.lower() == 'пропустить':
-        await msg.reply('Отлично! Давайте теперь определим город в котором будет осуществляться подбор вакансии.\r\n'
+        await msg.reply('Давайте теперь определим город в котором будет осуществляться подбор вакансий.\r\n'
                         'Для этого отправьте ответным сообщение наименование города.',
                         reply_markup=skip_step)
         await OrderParams.next()
@@ -189,8 +191,9 @@ async def choose_city(msg: types.Message, state: FSMContext):
             else:
                 df_cities = DataFrame(cur.execute("SELECT * FROM cities"), columns=cols_cities)
                 city_id = df_cities[df_cities['name'].str.lower() == msg.text.lower()]['id'].to_list()[0]
-            await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
-                             '"тестироващик ПО" или "аналитик данных"',
+            await msg.answer('Напишите какую роль Вы хотите выполнять, например: '
+                             '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
+                             'время запущенного процесса подбора вакансий',
                              reply_markup=skip_step)
             await state.update_data(area=city_id)
             await OrderParams.waiting_search_word_keys.set()
@@ -198,7 +201,8 @@ async def choose_city(msg: types.Message, state: FSMContext):
     else:
         if msg.text.lower() == 'пропустить':
             await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
-                             '"тестироващик ПО" или "аналитик данных"',
+                             '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
+                             'время запущенного процесса подбора вакансий)',
                              reply_markup=skip_step)
             await OrderParams.waiting_search_word_keys.set()
         else:
@@ -238,23 +242,24 @@ async def choose_region(msg: types.Message, state: FSMContext):
         await OrderParams.next()
     else:
         await msg.reply('Вероятно Вы указали регион не из предложенных вариантов. Выберите регион нажав на кнопку')
-    await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
-                     '"тестироващик ПО" или "аналитик данных"',
+    await msg.answer('Напишите какую роль Вы хотите выполнять, например: '
+                     '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
+                     'время заупщенного процесса подбора вакансий)',
                      reply_markup=types.ReplyKeyboardRemove())
 
 
 async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
     print('choose_vacs_word_keys')
     await state.update_data()
-    await msg.answer('Данные получены, производим обработку... Необходимо подождать некоторое время... '
-                     'Дождитесь сообщения о завершении.', reply_markup=types.ReplyKeyboardRemove())
     if msg.text.lower() != 'пропустить':
         if (msg.text.lower()).find('или') != -1:
             res = ' OR '.join([phrase for phrase in (msg.text.lower()).split('или')])
         else:
             res = ' OR '.join(word for word in (msg.text.lower()).replace('"', '').split(' '))
         await state.update_data(text=''.join(res))
-    await msg.answer('Теперь опишите функицональные обязанности, которые Вы хотите выполнять.')
+    await msg.answer('Теперь опишите функциональные обязанности, которые Вы хотите выполнять, более подробную '
+                     'информацию по заполнению данного поля ищите в /help',
+                     reply_markup=types.ReplyKeyboardRemove())
     await OrderParams.next()
 
 
@@ -262,7 +267,7 @@ async def analyze_description(msg: types.Message, state: FSMContext):
     print('analyze_description')
     await msg.answer('Механизм подбора вакансий запущен. К сожалению, необходимо немного подождать, '
                      'пока я подберу для Вас подходящие вакансии. Я обязательно Вам напишу, '
-                     'как только закончу подбор вакансий')
+                     'как только закончу подбор вакансий. Ориентировочное время подбора вакансий: 5-10 минут')
     df_vacs, quantity = get_vacs(params=(await state.get_data()), user_id=msg.from_user.id)
     if quantity != 0:
         if len(df_vacs) >= 1000:
