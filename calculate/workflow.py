@@ -15,6 +15,8 @@ from calculate.run_nlp_predict import nlp_predict
 nltk.download('punkt')
 db_path = path.abspath(getcwd()) + '/data/vacancies.db'
 
+# todo добавить логирование
+
 def sql_def():
     db_path = path.abspath(getcwd()) + '/data/vacancies.db'
     connect = sql.connect(db_path)
@@ -102,8 +104,8 @@ async def cmd_help(msg: types.Message):
     desc_role = 'Описание работы фильтра "Наименование роли"'
     desc_func = 'Рекомендация по вводу текста функциональных обязанностей'
     desc_main = 'Основное описание помощника'
-    send_text = 'Данный бот производит поиск наиболее подходящих вакансий на основе поданного текста на этапе ' \
-                'описания функциональных обязанностей. Бот использует методы машинного обучения по сопоставлению ' \
+    send_text = 'Данный бот производит поиск вакансий наиболее схожих с описанием, предоставленным пользователем на ' \
+                'этапе описания функциональных обязанностей. Бот использует методы машинного обучения по сопоставлению ' \
                 'двух текстов (текста от пользователя и текста описания вакансий, выгруженных с сайта HH.ru на ' \
                 'основании заполненных фильтров (все фильтры необязательны и их указание можно пропустить тем не ' \
                 'менее рекомендую их заполнять, так как будет более релевантный результат)).\r\n' \
@@ -211,14 +213,14 @@ async def choose_city(msg: types.Message, state: FSMContext):
     # если совпадений не найдено, то мы продолжаем ожидать от пользователя название города из справочника
     else:
         if msg.text.lower() == 'пропустить':
-            await msg.answer('Осталось немного. Напишите какую роль Вы хотите выполнять, например: '
+            await msg.answer('Осталось немного. Напишите, какую роль Вы хотите выполнять, например: '
                              '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
                              'время запущенного процесса подбора вакансий)',
                              reply_markup=skip_step)
             await OrderParams.waiting_search_word_keys.set()
         else:
             await msg.reply('Увы, но мне не удалось найти город с таким названием. Вероятно Вы допустили опечатку, '
-                            'попробуйте снова')
+                            'попробуйте ввести название населенного пункта снова')
     cur.close()
 
 
@@ -252,8 +254,9 @@ async def choose_region(msg: types.Message, state: FSMContext):
         await state.update_data(area=city_id)
         await OrderParams.next()
     else:
-        await msg.reply('Вероятно Вы указали регион не из предложенных вариантов. Выберите регион нажав на кнопку')
-    await msg.answer('Напишите какую роль Вы хотите выполнять, например: '
+        await msg.reply('Вероятно Вы указали регион не из списка предложенных вариантов. Выберите регион нажав на '
+                        'кнопку ниже')
+    await msg.answer('Напишите, какую роль Вы хотите выполнять, например: '
                      '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
                      'время заупщенного процесса подбора вакансий)',
                      reply_markup=types.ReplyKeyboardRemove())
@@ -269,7 +272,8 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
             res = ' OR '.join(word for word in (msg.text.lower()).replace('"', '').split(' '))
         await state.update_data(text=''.join(res))
     await msg.answer('Теперь опишите функциональные обязанности, которые Вы хотите выполнять, более подробную '
-                     'информацию по заполнению данного поля ищите в /help',
+                     'информацию по заполнению данного поля ищите в /help (не работает во '
+                     'время заупщенного процесса подбора вакансий)',
                      reply_markup=types.ReplyKeyboardRemove())
     await OrderParams.next()
 
@@ -295,7 +299,7 @@ async def analyze_description(msg: types.Message, state: FSMContext):
         else:
             ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
         await msg.reply('Поздравляю! Подбор вакансии по заданному описанию с применением одного из направлений '
-                        'машинного обучение, а именно NLP, завершен!')
+                        'машинного обучения, а именно NLP, завершен!')
         for i, url in enumerate(ls_result):
             await msg.answer(str(i + 1) + ') ' + url)
         await state.finish()
