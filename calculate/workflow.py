@@ -34,17 +34,16 @@ class OrderParams(StatesGroup):
 
 
 async def cmd_start_new(msg: types.Message):
-    print('новый пользователь')
     user_id = str(msg.from_user.id)
     connect =  sql.connect(db_path)
 
     # проверяем наличие пользователя в БД.
     # если пользователь имеется, то забираем параметр доступа, а также данные по принадлежности к админам
     if connect.execute(f"select count(*) from access where user_id = {user_id}").fetchall()[0][0]:
-        access = connect.execute(f"select access from access where user_id = {user_id}").fetchall()
-        print(access)
-        is_admin = connect.execute(f"select is_admin from access where user_id = {user_id}").fetchall()
-        print(is_admin)
+        access = connect.execute(f"select access from access where user_id = {user_id}").fetchall()[0][0]
+        print(f'access({user_id}) = {access}')
+        is_admin = connect.execute(f"select is_admin from access where user_id = {user_id}").fetchall()[0][0]
+        print(f'is_admin({user_id}) = {is_admin}')
         connect.close()
         if not access:
             await msg.answer('Вы заблокированы админом. Доступ к сервису запрещен.')

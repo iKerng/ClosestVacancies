@@ -88,7 +88,7 @@ class IsAccess(BoundFilter):
         print(f'Иднетификатор пользователя, отправивший запрос: {new_user_id}')
 
         connect = sql.connect(db_path)
-        if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}'").fetchall()[0][0]:
+        if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}' and access = 1").fetchall()[0][0]:
             connect.close()
             return [new_user_id]
 
