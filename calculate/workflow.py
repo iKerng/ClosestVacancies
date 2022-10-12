@@ -13,7 +13,7 @@ from calculate.get_vacancies import hh_api_get_vacancies as get_vacs
 from calculate.run_nlp_predict import nlp_predict
 
 nltk.download('punkt')
-
+db_path = path.abspath(getcwd()) + '/data/vacancies.db'
 
 def sql_def():
     db_path = path.abspath(getcwd()) + '/data/vacancies.db'
@@ -32,34 +32,45 @@ class OrderParams(StatesGroup):
 
 
 async def cmd_start_new(msg: types.Message):
-    whitelist_id = [int(idents) for idents in getenv('whitelist').split(',')]
-    if len(getenv('blacklist')) not in (0, 2):
-        blacklist_id = [int(idents) for idents in getenv('blacklist').split(',')]
+    print('новый пользователь')
+    user_id = str(msg.from_user.id)
+    connect =  sql.connect(db_path)
+
+    # проверяем наличие пользователя в БД.
+    # если пользователь имеется, то забираем параметр доступа, а также данные по принадлежности к админам
+    if connect.execute(f"select count(*) from access where user_id = {user_id}").fetchall()[0][0]:
+        access = connect.execute(f"select access from access where user_id = {user_id}").fetchall()
+        print(access)
+        is_admin = connect.execute(f"select is_admin from access where user_id = {user_id}").fetchall()
+        print(is_admin)
+        connect.close()
+        if not access:
+            await msg.answer('Вы заблокированы админом. Доступ к сервису запрещен.')
+    # если пользователя нет
     else:
-        blacklist_id = []
-    if not blacklist_id.count(msg.from_user.id):
-        if not whitelist_id.count(msg.from_user.id):
-            print(f'Пришло сообщение от нового пользователя с ID [{msg.from_user.id}] '
-                  f'с именем [{msg.from_user.first_name}]')
-            new_user_id = msg.from_user.id
-            new_user_name = msg.from_user.full_name
-            await msg.answer('Информация о Вас поступила администратору. Пожалуйста, '
-                             'ожидайте получения доступа к сервису бота')
-            add_whitelist = f'Добавить в WhiteList пользователя {msg.from_user.first_name} с ID {str(new_user_id)}'
-            add_blacklist = f'Заблокировать пользователя {msg.from_user.first_name} с ID [{str(new_user_id)}]'
-            inl_kb = [types.InlineKeyboardButton(add_whitelist, callback_data='add_user')
-                      , types.InlineKeyboardButton(add_blacklist, callback_data='block_user')]
-            keyboard = types.InlineKeyboardMarkup(row_width=1)
-            keyboard.add(*inl_kb)
-            admin_id = int(getenv('bot_admin'))
-            await msg.bot.send_message(chat_id=admin_id,
-                                       text=f'Пользователь с именем [{new_user_name}] и ID: [{new_user_id}] хочет '
-                                            f'воспльзоваться услугой бота', reply_markup=keyboard)
-    else:
-        await msg.answer('Вы заблокированы админом. Доступ к сервису запрещен.')
+        print(f'Пришло сообщение от нового пользователя с ID [{msg.from_user.id}] '
+              f'с именем [{msg.from_user.first_name}]')
+        new_user_id = msg.from_user.id
+        new_user_name = msg.from_user.full_name
+        # отправляем пользователю сообщение о том, что заявка на доступ отправлена на рассмотрение
+        await msg.answer('Информация о Вас поступила администратору. Пожалуйста, '
+                         'ожидайте получения доступа к сервису бота')
+        # создаем две кнопки: разрешить доступ, или запретить
+        add_whitelist = f'Добавить в WhiteList пользователя {msg.from_user.first_name} с ID {str(new_user_id)}'
+        add_blacklist = f'Заблокировать пользователя {msg.from_user.first_name} с ID [{str(new_user_id)}]'
+        inl_kb = [types.InlineKeyboardButton(add_whitelist, callback_data='add_user')
+            , types.InlineKeyboardButton(add_blacklist, callback_data='block_user')]
+        keyboard = types.InlineKeyboardMarkup(row_width=1)
+        keyboard.add(*inl_kb)
+        admin_id = int(getenv('bot_admin'))
+        # отправляем заявку на предоставление доступа главному админу
+        await msg.bot.send_message(chat_id=admin_id,
+                                   text=f'Пользователь с именем [{new_user_name}] и ID: [{new_user_id}] хочет '
+                                        f'воспльзоваться услугой бота', reply_markup=keyboard)
 
 
 async def cmd_start(msg: types.Message, state: FSMContext):
+    print('старый пользователь')
     # Если приходит новая команда /start, то мы прекращаем все предыдущие состояния
     await state.finish()
     await OrderParams.waiting_schedule.set()
@@ -138,7 +149,7 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
         await state.update_data(schedule=df_schedule[df_schedule['name'] == msg.text]['id'].to_list()[0])
         # следовательно переходим сразу к получению названия вакансии
         await OrderParams.waiting_search_word_keys.set()
-        await msg.answer('Напишите какую роль Вы хотите выполнять, например: '
+        await msg.answer('Напишите, какую роль Вы хотите выполнять, например: '
                          '"тестироващик ПО" или "аналитик данных", более подробно ищите в /help (не работает во '
                          'время запущенного процесса подбора вакансий)',
                          reply_markup=types.ReplyKeyboardRemove())

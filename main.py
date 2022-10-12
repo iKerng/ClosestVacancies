@@ -18,7 +18,6 @@ async def run_bot():
     whitelist = [int(idents) for idents in getenv('whitelist').split(',')]
 
     dp = Dispatcher(bot, storage=MemoryStorage(), loop=loop)
-
     register_handlers_common(dp, whitelist)
     register_handlers_admin(dp, int(bot_admin))
     register_continue(dp, whitelist)

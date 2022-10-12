@@ -9,41 +9,9 @@ from calculate.workflow import choose_schedule, OrderParams, choose_city
 from calculate.workflow import choose_region, analyze_description,  search_vacs_word_keys
 from calculate.preload_dicts import reload_dict
 
+import sqlite3 as sql
 
-def add_to_list(id: int, list: str):
-    cur_str_ids = getenv(list)
-    if len(cur_str_ids) > 0:
-        new_value = cur_str_ids + ',' + str(id)
-    else:
-        new_value = str(id)
-    environ[list] = new_value
-
-    path_file = path.abspath(getcwd()) + '/data/set_env_' + list + '.py'
-    file = open(path_file, 'r', encoding='utf8')
-    cur_text = file.read()
-    file.close()
-    file = open(path_file, 'w', encoding='utf8')
-    new_text = cur_text.split(" '")[0] + " '" + new_value + "'"
-    file.write(new_text)
-    file.close()
-
-
-def remove_from_list(id: int, list: str):
-    cur_str_ids = getenv(list)
-    if len(cur_str_ids) > 0:
-        list_ids = cur_str_ids.split(',')
-        if list_ids.count(str(id)): list_ids.remove(str(id))
-        new_str_ids = ','.join(list_ids)
-        environ[list] = new_str_ids
-
-        path_file = path.abspath(getcwd()) + '/data/set_env_' + list + '.py'
-        file = open(path_file, 'r', encoding='utf8')
-        cur_text = file.read()
-        file.close()
-        file = open(path_file, 'w', encoding='utf8')
-        new_text = cur_text.split(" '")[0] + " '" + new_str_ids + "'"
-        file.write(new_text)
-        file.close()
+db_path = path.abspath(getcwd()) + '/data/vacancies.db'
 
 
 # админская настройка для выбора используемой модели
@@ -74,8 +42,10 @@ async def switch_nlp_model(msg: types.Message):
 # функция разблокирования пользователя
 async def unblock_user(msg: types.Message):
     user_id = msg.text.split()[1]
-    remove_from_list(user_id, 'blacklist')
-    add_to_list(user_id, 'whitelist')
+    connect = sql.connect(db_path)
+    connect.execute(f"UPDATE access set access = 1 where  user_id = {user_id}")
+    connect.commit()
+    connect.close()
     await msg.bot.send_message(int(user_id), 'Поздравляю, доступ к услугам бота предоставлен!\r\nДля запуска сервиса '
                                              'воспользуйтесь командой /start')
 
@@ -113,10 +83,14 @@ class IsAccess(BoundFilter):
     def __init__(self, in_whitelist):
         self.in_whitelist = in_whitelist
 
-    async def check(self, msg: types.Message):
+    async def check(self, msg: types.Message) -> bool:
         new_user_id = msg.from_user.id
-        if [int(ids) for ids in getenv('whitelist').split(',')].count(new_user_id):
-            return new_user_id
+        print(f'Иднетификатор пользователя, отправивший запрос: {new_user_id}')
+
+        connect = sql.connect(db_path)
+        if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}'").fetchall()[0][0]:
+            connect.close()
+            return [new_user_id]
 
 
 def register_handlers_common(dp: Dispatcher, user_id):
@@ -127,17 +101,29 @@ def register_handlers_common(dp: Dispatcher, user_id):
     @dp.callback_query_handler(text="add_user")
     async def add_user(call: types.CallbackQuery):
         new_user_id = call.message.reply_markup.inline_keyboard[0][0].text.split(' ')[-1]
-        if not (getenv('whitelist')).split(',').count(new_user_id):
-            remove_from_list(int(new_user_id), 'blacklist')
-            add_to_list(int(new_user_id), 'whitelist')
+        print(f'Добавляем пользователя в БД с ID {new_user_id}')
+
+        connect = sql.connect(db_path)
+        if not connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}'").fetchall()[0][0]:
+            connect.execute(f"INSERT INTO access (user_id, access) VALUES ({new_user_id}, 1)")
+            connect.commit()
+            connect.close()
             await call.message.answer(f'Пользователю с ID [{new_user_id}] предоставлен доступ к сервису')
             await call.bot.send_message(int(new_user_id), text='Вам предоставлен доступ к сервису')
+
 
     @dp.callback_query_handler(text="block_user")
     async def block_user(call: types.CallbackQuery):
         new_user_id = call.message.reply_markup.inline_keyboard[0][0].text.split(' ')[-1]
-        add_to_list(int(new_user_id), 'blacklist')
-        remove_from_list(int(new_user_id), 'whitelist')
+        connect = sql.connect(db_path)
+        if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}'").fetchall()[0][0]:
+            connect.execute(f"UPDATE access set access = 0 where  user_id = {new_user_id}")
+            connect.commit()
+            connect.close()
+        else:
+            connect.execute(f"INSERT INTO access (user_id) VALUES ({new_user_id})")
+            connect.commit()
+            connect.close()
         await call.message.answer(f'Пользователю с ID [{new_user_id}] заблокирован доступ к сервису')
         # нужно решить, отдавать ли обратную связь по блокировке, так как могут обидеться и ддосить...
         # но заготовка пусть будет
@@ -146,9 +132,9 @@ def register_handlers_common(dp: Dispatcher, user_id):
     @dp.callback_query_handler(text="role_desc")
     async def role_desc(call: types.CallbackQuery):
         change_text = 'На данный момент в фильтре "наименование вакансии" реализован поиск через:\r\n' \
-                      '1) операцию или между словами, например, "python разработчик": будут отбираться вакансии,' \
+                      '1) операцию "или" между словами, например, "python разработчик": будут отбираться вакансии,' \
                       'у которых в заголовке вакансии встречается слово "python" или слово "разработчик"\r\n' \
-                      '2) операцию или между словосочетаниями, например если ввести такое сообщение: "data analytic" ' \
+                      '2) операцию "или" между словосочетаниями, например если ввести такое сообщение: "data analytic" ' \
                       'или "аналитик данных" или "data analyst", то будут отбираться вакансии, у которых в заголовке ' \
                       'будут встречаться одно из перечисленных в кавычках словосочетаний.'
         desc_role = 'Описание работы фильтра "Наименование роли"'
@@ -172,7 +158,7 @@ def register_handlers_common(dp: Dispatcher, user_id):
                       ' Вы уже овладели. Текст должен быть не коротким из серии "хочу быть python разработчиком" (для' \
                       'примера), а что-то вроде "ищу работу на должность full stack Python разработчика, прошел ' \
                       'обучение в такой-то школе, работал с такими-то библиотеками, реализовал следующие проекты' \
-                      'умею работать с git, linux, windows, знаю SQL на таком-то уровне". В общем все то, что вы ' \
+                      'умею работать с git, linux, windows, знаю SQL на таком-то уровне". В общем все то, что Вы ' \
                       'хотите и умеете применять.\r\n' \
                       'Альтернативный способ использования сервиса - это поиск вакансий релевантных Вашему запросу с ' \
                       'целью определения какие навыки требуются для соответствующей роли, чтобы подтянуть свои ' \
