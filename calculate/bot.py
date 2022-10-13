@@ -11,6 +11,8 @@ from calculate.preload_dicts import reload_dict
 
 import sqlite3 as sql
 
+from calculate.log_writer import to_log
+
 db_path = path.abspath(getcwd()) + '/data/vacancies.db'
 
 
@@ -21,16 +23,29 @@ async def switch_nlp_model(msg: types.Message):
     if ls_words.count('all'):
         await msg.reply(f"Используемые модели: {str(list(nlp_model.values()[1:]))[1:-1]}")
         environ['model'] = '0'
+        to_log(log_user=msg.from_user.username,
+               log_user_id=msg.from_user.id,
+               log_text='Включаем все виды используемых моделей NLP')
     elif ls_words.count('tf-idf'):
         await msg.reply('Используется модель: TF-IDF')
         environ['model'] = '1'
+        to_log(log_user=msg.from_user.username,
+               log_user_id=msg.from_user.id,
+               log_text='Изменена модель NLP на TF-IDF')
     elif ls_words.count('word2vec'):
         await msg.reply('Используется модель: Doc2Vec')
         environ['model'] = '2'
+        to_log(log_user=msg.from_user.username,
+               log_user_id=msg.from_user.id,
+               log_text='Изменена модель NLP на Doc2Vec')
     elif ls_words.count('s-bert'):
         await msg.reply('Используется модель: S-BERT')
         environ['model'] = '3'
+        to_log(log_text='Изменена модель NLP на Sentence-BERT')
     elif msg.text.lower() == '/model':
+        to_log(log_user=msg.from_user.username,
+               log_user_id=msg.from_user.id,
+               log_text='Указана модель не из списка возможных (1: TF-IDF, 2: Doc2Vec, 3: S-BERT)')
         await msg.answer(f"Используется модель: { nlp_model.get(getenv('model')) }")
         model_button = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         model_button.add(*['/model TF-IDF', '/model Doc2Vec', '/model S-BERT', '/model all'])
@@ -46,12 +61,16 @@ async def unblock_user(msg: types.Message):
     connect.execute(f"UPDATE access set access = 1 where  user_id = {user_id}")
     connect.commit()
     connect.close()
+    to_log(log_user=msg.from_user.username, log_user_id=msg.from_user.id,
+           log_text=f'Пользователь с ID [{user_id}] разблокирован')
     await msg.bot.send_message(int(user_id), 'Поздравляю, доступ к услугам бота предоставлен!\r\nДля запуска сервиса '
                                              'воспользуйтесь командой /start')
 
 # админская команда на обновление словарей
 async def reload_dicts(msg: types.Message):
     reload_dict('all')
+    to_log(log_user=msg.from_user.username, log_user_id=msg.from_user.id,
+           log_text=f'Обновили все словари')
     await msg.reply('Выбранные словари обновлены.')
 
 
@@ -65,16 +84,24 @@ async def switch_mode_razmetki(msg: types.Message):
     if list_words.count('on'):
         await msg.reply(f'Режим разметки установлен в состояние: ON')
         environ['is_razmetka'] = '1'
+        to_log(log_user=msg.from_user.username, log_user_id=msg.from_user.id,
+               log_text=f'Режим разметки данных включен')
     elif list_words.count('off'):
         await msg.reply(f'Режим разметки установлен в состояние: OFF')
         environ['is_razmetka'] = '0'
+        to_log(log_user=msg.from_user.username, log_user_id=msg.from_user.id,
+               log_text=f'Режим разметки данных выключен')
     elif msg.text == '/razmetka':
         await msg.answer(f"Режим разметки: {status_razmetki}")
         razmetka_button = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         razmetka_button.add(*['/razmetka OFF', '/razmetka ON'])
         await msg.reply(f'Выбери режим разметки:', reply_markup=razmetka_button)
+        to_log(log_user=msg.from_user.username, log_user_id=msg.from_user.id,
+               log_text=f"Запрос на получение текущего значения режима разметки. Текущее значение " +
+                        f"{getenv('is_razmetka')}")
     else:
         await msg.reply('Данная команда мне неизвестна.')
+    # to_log(msg.ge)
 
 
 class IsAccess(BoundFilter):
@@ -85,36 +112,47 @@ class IsAccess(BoundFilter):
 
     async def check(self, msg: types.Message) -> bool:
         new_user_id = msg.from_user.id
-        print(f'Иднетификатор пользователя, отправивший запрос: {new_user_id}')
-
         connect = sql.connect(db_path)
-        if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}' and access = 1").fetchall()[0][0]:
+        if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}' and access = 1")\
+                .fetchall()[0][0]:
             connect.close()
             return [new_user_id]
+        # elif connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}' and access = 0")\
+        #         .fetchall()[0][0]:
+        #     to_log(log_user=msg.from_user.username,
+        #            log_user_id=msg.from_user.id,
+        #            log_text="Заблокированный пользователь пытается воспользоваться сервисом")
+        else:
+            connect.close()
 
 
 def register_handlers_common(dp: Dispatcher, user_id):
-    print(f'Список идентификаторов пользователей, которым разрешено пользоваться сервисом {user_id}')
     dp.register_message_handler(cmd_start, IsAccess(in_whitelist=user_id), commands="start", state="*")
     dp.register_message_handler(cmd_start_new, commands="start", state="*")
 
     @dp.callback_query_handler(text="add_user")
     async def add_user(call: types.CallbackQuery):
         new_user_id = call.message.reply_markup.inline_keyboard[0][0].text.split(' ')[-1]
-        print(f'Добавляем пользователя в БД с ID {new_user_id}')
-
         connect = sql.connect(db_path)
         if not connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}'").fetchall()[0][0]:
             connect.execute(f"INSERT INTO access (user_id, access) VALUES ({new_user_id}, 1)")
             connect.commit()
             connect.close()
-            await call.message.answer(f'Пользователю с ID [{new_user_id}] предоставлен доступ к сервису')
-            await call.bot.send_message(int(new_user_id), text='Вам предоставлен доступ к сервису')
+        else:
+            connect.execute(f"UPDATE access set access = 1 where user_id = {new_user_id}")
+            connect.commit()
+            connect.close()
+        await call.message.answer(f'Пользователю с ID [{new_user_id}] предоставлен доступ к сервису')
+        await call.bot.send_message(int(new_user_id), text='Вам предоставлен доступ к сервису. Для запуска '
+                                                           'необходимо снова произвести запуск с помощью '
+                                                           'команды /start')
+        to_log(log_text=f"Пользователю с ID [{new_user_id}] предоставлен доступ к сервису")
 
 
     @dp.callback_query_handler(text="block_user")
     async def block_user(call: types.CallbackQuery):
         new_user_id = call.message.reply_markup.inline_keyboard[0][0].text.split(' ')[-1]
+        to_log(log_text=f"Пользователю с ID [{new_user_id}] заблокирован доступ к сервису")
         connect = sql.connect(db_path)
         if connect.execute(f"SELECT count(*) FROM access WHERE user_id = '{new_user_id}'").fetchall()[0][0]:
             connect.execute(f"UPDATE access set access = 0 where  user_id = {new_user_id}")

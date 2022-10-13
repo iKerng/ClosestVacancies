@@ -19,6 +19,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 
 from calculate.get_vacancies import hh_api_get_vacancies
+from calculate.log_writer import to_log
 
 
 def clean_tokenize(text=''):
@@ -64,8 +65,8 @@ def run_tfidf(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
         arr_score = np.array(df_map['score'].to_list())
         arr_true = np.array(df_map['fact'].to_list())
         m2k = map2k(arr_true, arr_score)
-        print(f'Метрика map@k для модели TF-IDF: {m2k}')
-    print('TF-IDF: завершили')
+        to_log(log_text=f'Метрика map@k для модели TF-IDF: {m2k}')
+    to_log(log_text='TF-IDF: завершили')
 
     return vacancies['url'].iloc[tf_idf_top10].to_list()
 
@@ -115,8 +116,8 @@ def run_word2vec(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_
         arr_score = np.array(df_map['score'].to_list())
         arr_true = np.array(df_map['fact'].to_list())
         m2k = map2k(arr_true, arr_score)
-        print(f'Метрика map@k для модели Word2Vec: {m2k}')
-    print('Word2Vec: завершили')
+        to_log(log_text=f'Метрика map@k для модели Word2Vec: {m2k}')
+    to_log(log_text='Word2Vec: завершили')
 
     return vacancies['url'].iloc[res_top_list].to_list()
 
@@ -177,38 +178,38 @@ def run_sbert(cleared_user_text='', vacancies=pd.DataFrame(columns=['cleared_vac
         arr_score = np.array(df_map['score'].to_list())
         arr_true = np.array(df_map['fact'].to_list())
         m2k = map2k(arr_true, arr_score)
-        print(f'Метрика map@k для модели Sentence-BERT: {m2k}')
-    print('S-BERT: завершили')
+        to_log(log_text=f'Метрика map@k для модели Sentence-BERT: {m2k}')
+    to_log(log_text='S-BERT: завершили')
 
     return vacancies['url'].iloc[list_res].to_list()
 
 
 def nlp_predict(user_text='', vacancies=pd.DataFrame()):
     # предобработка текста
-    print('Запускаем предобработку текста скаченных вакансий и текста от пользователя')
+    to_log(log_text='Запускаем предобработку текста скаченных вакансий и текста от пользователя')
     vacancies['cleared_vacs'] = vacancies['description'].apply(lambda x: clean_tokenize(x))
     cleared_user_text = clean_tokenize(text=user_text)
-    print('Закончили предобработку текста скаченных вакансий')
+    to_log(log_text='Закончили предобработку текста скаченных вакансий')
 
     # рабочая модель (для разметки используем весь набор)
     mode_rezhim = int(getenv('model'))
     if mode_rezhim == 0:
-        print('TF-IDF: запускаем обработку')
+        to_log(log_text='TF-IDF: запускаем обработку')
         tfidf = run_tfidf(cleared_user_text, vacancies)
-        print('Word2Vec: запускаем обработку')
+        to_log(log_text='Word2Vec: запускаем обработку')
         word2vec = run_word2vec(cleared_user_text, vacancies)
-        print('S-BERT: запускаем обработку')
+        to_log(log_text='S-BERT: запускаем обработку')
         run_bert = run_sbert(cleared_user_text, vacancies)
 
         return tfidf + word2vec + run_bert
     elif mode_rezhim == 1:
-        print('TF-IDF: запускаем обработку')
+        to_log(log_text='TF-IDF: запускаем обработку')
         return run_tfidf(cleared_user_text, vacancies)
     elif mode_rezhim == 2:
-        print('Word2Vec: запускаем обработку')
+        to_log(log_text='Word2Vec: запускаем обработку')
         return run_word2vec(cleared_user_text, vacancies)
     elif mode_rezhim == 3:
-        print('S-BERT: запускаем обработку')
+        to_log(log_text='S-BERT: запускаем обработку')
         return run_sbert(cleared_user_text, vacancies)
     else:
         environ['model'] = '1'
@@ -229,5 +230,5 @@ if __name__ == '__main__':
                 'направлении DA и DS'
     df_vacs = hh_api_get_vacancies(user_id=int(getenv('bot_admin')))
     res = nlp_predict(user_text=user_text, vacancies=df_vacs)
-    print(f"Результат подбора:\r\n{res}")
+    to_log(log_text=f"Результат подбора:\r\n{res}")
 

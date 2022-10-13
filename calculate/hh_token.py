@@ -6,6 +6,7 @@
 # 	"token_type": ""
 # }
 import os.path
+from calculate.log_writer import to_log
 
 
 def get_token():
@@ -21,7 +22,8 @@ def get_token():
         token_dict.update({'token_type': hh_token_type})
         token = hh_token_type + ' ' + hh_token
     else:
-        print('Файл с данными для использования Токена не найден. Подложите файл (token.xml) с данными в папку "data"')
+        to_log(log_text='Файл с данными для использования Токена не найден. Подложите файл (token.xml) с данными ' +
+                        'в папку "data"')
 
     return token
 

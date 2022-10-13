@@ -11,6 +11,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from calculate.get_vacancies import hh_api_get_vacancies as get_vacs
 from calculate.run_nlp_predict import nlp_predict
+from calculate.log_writer import to_log
 
 nltk.download('punkt')
 db_path = path.abspath(getcwd()) + '/data/vacancies.db'
@@ -36,21 +37,23 @@ class OrderParams(StatesGroup):
 async def cmd_start_new(msg: types.Message):
     user_id = str(msg.from_user.id)
     connect =  sql.connect(db_path)
-
     # проверяем наличие пользователя в БД.
     # если пользователь имеется, то забираем параметр доступа, а также данные по принадлежности к админам
     if connect.execute(f"select count(*) from access where user_id = {user_id}").fetchall()[0][0]:
         access = connect.execute(f"select access from access where user_id = {user_id}").fetchall()[0][0]
-        print(f'access({user_id}) = {access}')
         is_admin = connect.execute(f"select is_admin from access where user_id = {user_id}").fetchall()[0][0]
-        print(f'is_admin({user_id}) = {is_admin}')
         connect.close()
         if not access:
             await msg.answer('Вы заблокированы админом. Доступ к сервису запрещен.')
+            to_log(log_user=msg.from_user.username, log_user_id=user_id,
+                   log_text=f"Заблокированный пользователь пытается получить доступ к сервису")
     # если пользователя нет
     else:
-        print(f'Пришло сообщение от нового пользователя с ID [{msg.from_user.id}] '
-              f'с именем [{msg.from_user.first_name}]')
+        to_log(log_user=msg.from_user.username,
+               log_user_id=msg.from_user.id,
+               log_text=f"Новый Пользователь отправил команду /start")
+        to_log(log_user=msg.from_user.username, log_user_id=user_id,
+               log_text=f"Пользователь отправил запрос на получение доступа к сервису")
         new_user_id = msg.from_user.id
         new_user_name = msg.from_user.full_name
         # отправляем пользователю сообщение о том, что заявка на доступ отправлена на рассмотрение
@@ -71,7 +74,9 @@ async def cmd_start_new(msg: types.Message):
 
 
 async def cmd_start(msg: types.Message, state: FSMContext):
-    print('старый пользователь')
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь отправил команду /start")
     # Если приходит новая команда /start, то мы прекращаем все предыдущие состояния
     await state.finish()
     await OrderParams.waiting_schedule.set()
@@ -94,12 +99,17 @@ async def cmd_start(msg: types.Message, state: FSMContext):
 
 async def cmd_cancel(msg: types.Message, state: FSMContext):
     # функция отмены текущего процесса
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь отправил команду /cancel")
     await state.finish()
     await msg.answer("Действие отменено", reply_markup=types.ReplyKeyboardRemove())
 
 
 async def cmd_help(msg: types.Message):
-    # msg.message_id
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь отправил команду /help")
     desc_role = 'Описание работы фильтра "Наименование роли"'
     desc_func = 'Рекомендация по вводу текста функциональных обязанностей'
     desc_main = 'Основное описание помощника'
@@ -132,9 +142,9 @@ async def cmd_help(msg: types.Message):
 # функция выбора режим работы.
 # Если удаленный режим, то переходим дальше к получению
 async def choose_schedule(msg: types.Message, state: FSMContext):
-    print('choose_schedule')
-    razmetka_status = 'включен' if getenv('is_razmetka') else 'выключен'
-    print(f'Выводим значение параметра разметки: {razmetka_status}')
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь выбирал формат работы: {msg.text}")
     cur = sql_def()
     # получаем список колонок
     cols = DataFrame(cur.execute("pragma table_info('schedule')"))[1].to_list()
@@ -170,7 +180,9 @@ async def choose_schedule(msg: types.Message, state: FSMContext):
 
 
 async def choose_city(msg: types.Message, state: FSMContext):
-    print('choose_city')
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь выбирал город поиска вакансий: {msg.text}")
     # формируем словари регионов и городов
     cur = sql_def()
     cols_cities = DataFrame(cur.execute("pragma table_info('cities')"))[1].to_list()
@@ -192,7 +204,7 @@ async def choose_city(msg: types.Message, state: FSMContext):
             list_regions = df_region[df_region['id'].isin(ls_regions_id)]['name'].to_list()
             region_buttons = types.ReplyKeyboardMarkup(resize_keyboard=True)
             region_buttons.add(*list_regions)
-            await msg.reply('Мы нашли данные город в нескольких регионах. Выберите Ваш регион',
+            await msg.reply('Мы нашли данный населенный пункт в нескольких регионах. Выберите Ваш регион',
                             reply_markup=region_buttons)
             await state.update_data(city=msg.text)
             await OrderParams.next()
@@ -224,7 +236,9 @@ async def choose_city(msg: types.Message, state: FSMContext):
 
 
 async def choose_region(msg: types.Message, state: FSMContext):
-    print('choose_region')
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь выбирал регион поиска вакансий: {msg.text}")
     # так как мы получили название города, и знаем что их больше одного,
     # то мы формируем список кнопок для выбора региона
     # для этого мы создаем запрос на получение списка регионов по названию города
@@ -262,7 +276,9 @@ async def choose_region(msg: types.Message, state: FSMContext):
 
 
 async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
-    print('choose_vacs_word_keys')
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь выбирал ключевые слова поиска вакансий: {msg.text}")
     await state.update_data()
     if msg.text.lower() != 'пропустить':
         if (msg.text.lower()).find('или') != -1:
@@ -278,7 +294,9 @@ async def search_vacs_word_keys(msg: types.Message, state: FSMContext):
 
 
 async def analyze_description(msg: types.Message, state: FSMContext):
-    print('analyze_description')
+    to_log(log_user=msg.from_user.username,
+           log_user_id=msg.from_user.id,
+           log_text=f"Пользователь ввел описание искомой вакансии: {msg.text}")
     await msg.answer('Механизм подбора вакансий запущен. К сожалению, необходимо немного подождать, '
                      'пока я подберу для Вас подходящие вакансии. Я обязательно Вам напишу, '
                      'как только закончу подбор вакансий. Ориентировочное время подбора вакансий: 5-10 минут')
@@ -289,7 +307,6 @@ async def analyze_description(msg: types.Message, state: FSMContext):
                              f' среди 1000 самых свежих опубликованных')
         else:
             await msg.answer(f'Всего найдено: {quantity} вакансий(я) по заправшиваемым параметрам.')
-        print(f'предсказание запущено по тексту: [{msg.text}]')
         if int(getenv('model')) == 0:
             ls_result = nlp_predict(user_text=msg.text, vacancies=df_vacs)
             if int(getenv('is_razmetka')):
@@ -304,7 +321,6 @@ async def analyze_description(msg: types.Message, state: FSMContext):
         await state.finish()
         await msg.answer('Для нового поиска нажмите /start')
     else:
-        print(await state.get_data())
         name_vac = (await state.get_data()).get('text')
         await msg.answer(f"По вашему запросу названия [{name_vac}] вакансий не найдено")
         await state.finish()

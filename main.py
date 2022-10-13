@@ -9,7 +9,7 @@ from calculate.bot import register_handlers_common, register_continue, register_
 from data.set_env_default_params import set_env
 from data.set_env_blacklist import set_env_blacklist
 from data.set_env_whitelist import set_env_whitelist
-
+from calculate.log_writer import to_log
 
 async def run_bot():
 
@@ -23,6 +23,11 @@ async def run_bot():
     register_continue(dp, whitelist)
 
     # запускаем бота
+    # razmetka_status = 'включен' if getenv('is_razmetka') else 'выключен'
+    to_log(log_text='Запускаем приложение бота со следующими параметрами')
+    to_log(log_text=f"Режим разметки: {getenv('is_razmetka')}")
+    to_log(log_text=f"Разметка выполнена: {getenv('razmetka_done')}")
+    to_log(log_text=f"Используется модель (1: TF-IDF; 2: Doc2Vec; 3: S-BERT): {getenv('model')}")
     await dp.start_polling()
 
 

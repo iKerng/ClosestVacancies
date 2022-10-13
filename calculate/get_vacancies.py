@@ -1,4 +1,5 @@
 from calculate import hh_token
+from calculate.log_writer import to_log
 import pandas as pd
 from os import path, getcwd, getenv, environ
 import sqlite3 as sql
@@ -24,24 +25,21 @@ def hh_api_get_vacancies(params: object = None, user_id: object = 0) -> object:
     filter_vacs_dict = {'Authorization': token, 'per_page': per_page, 'page': page, 'date_from': date_from,
                         'order_by': 'publication_time', 'area': area}
     filter_vacs_dict.update(params)
-    print(f'Параметры запроса к апи HH: {filter_vacs_dict}')
-    count_vacs = 0
+    to_log(log_text=f'Параметры запроса к апи HH: {filter_vacs_dict}')
 
     # запускаем обработку вакансий
     if int(getenv('is_razmetka')):
         # для разметки данных берем данные локально из БД
-        print('Находимся в режиме разметки, данные берём из БД')
         vacancies = pd.read_sql('select * from vacancies_'+str(user_id), con=connect, index_col='id')
         environ['model'] = '0'
         count_vacs = len(vacancies)
     else:
-        print('Находимся в режиме работы с HH.ru')
         # а для режима пром - берем данные с HH.ru
         vacancies = pd.DataFrame()
         rs_get = rq.get(url=link_api_hh+'vacancies/', params=filter_vacs_dict).json()
         ls_vacancies = rs_get.get('items')
         count_vacs = rs_get.get('found')
-        print(f'Всего найдено {count_vacs} вакансий.')
+        to_log(log_text=f'Всего найдено {count_vacs} вакансий')
         if count_vacs != 0:
             iters = [x for x in range(int(count_vacs/per_page)+1)][1:int(limit/per_page)]
             for iter_page in iters:
